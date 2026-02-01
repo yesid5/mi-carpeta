@@ -1,12 +1,12 @@
 const express = require('express');
-const mysql = require('mysql2/promise'); // Declarado una sola vez ✅
+const mysql = require('mysql2/promise');
 const cors = require('cors');
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Configuración del pool de conexiones
+// 1. Configuración del pool de conexiones
 const pool = mysql.createPool({
   host: process.env.DB_HOST,
   user: process.env.DB_USER,
@@ -16,13 +16,13 @@ const pool = mysql.createPool({
   ssl: {
     rejectUnauthorized: false
   },
-  connectTimeout: 10000 // Añadimos esto para que no espere para siempre
+  connectTimeout: 10000, // Coma agregada aquí ✅
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0
 });
 
-// Prueba de conexión al arrancar
+// 2. Prueba de conexión al arrancar
 pool.getConnection()
   .then(conn => {
     console.log("✅ Conectado exitosamente a Aiven MySQL");
@@ -32,17 +32,18 @@ pool.getConnection()
     console.error("❌ Error de conexión a la base de datos:", err.message);
   });
 
-// Función unificada para consultar usando el POOL
+// 3. Función unificada para consultar
 async function query(sql, params) {
   try {
     const [results] = await pool.execute(sql, params);
     return results;
   } catch (err) {
+    console.error("Error SQL:", err.message);
     throw err;
   }
 }
 
-// Ruta para obtener productos
+// 4. Rutas
 app.get('/productos', async (req, res) => {
   try {
     const rows = await query('SELECT * FROM productos ORDER BY id DESC');
@@ -52,7 +53,6 @@ app.get('/productos', async (req, res) => {
   }
 });
 
-// Ruta para guardar productos (para cuando uses el formulario de agregar)
 app.post('/productos', async (req, res) => {
   const { nombre, precio, stock, codigo_barras } = req.body;
   try {
@@ -64,5 +64,12 @@ app.post('/productos', async (req, res) => {
   }
 });
 
-const PORT = process.env.PORT || 10000; // Render usa el puerto 10000 por defecto
-app.listen(PORT, () => console.log(`Servidor Tienda JP listo en puerto ${PORT}`));
+// 5. Puerto configurado para Render
+// Agregamos '0.0.0.0' para que Render pueda hacer el "Port Binding" correctamente
+const PORT = process.env.PORT || 10000;
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`🚀 Servidor Tienda JP listo y escuchando en puerto ${PORT}`);
+});
+
+
+
