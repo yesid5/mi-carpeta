@@ -16,6 +16,7 @@ const pool = mysql.createPool({
   ssl: {
     rejectUnauthorized: false
   },
+  connectTimeout: 10000 // Añadimos esto para que no espere para siempre
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0
