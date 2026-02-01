@@ -1,13 +1,10 @@
 const express = require('express');
-const mysql = require('mysql2/promise'); // Librería para MySQL
+const mysql = require('mysql2/promise'); // Declarado una sola vez ✅
 const cors = require('cors');
 
 const app = express();
 app.use(cors());
 app.use(express.json());
-
-
-const mysql = require('mysql2/promise');
 
 // Configuración del pool de conexiones
 const pool = mysql.createPool({
@@ -17,7 +14,7 @@ const pool = mysql.createPool({
   database: process.env.DB_NAME,
   port: process.env.DB_PORT,
   ssl: {
-    rejectUnauthorized: false // Esto es vital para que Aiven acepte la conexión
+    rejectUnauthorized: false
   },
   waitForConnections: true,
   connectionLimit: 10,
@@ -33,14 +30,14 @@ pool.getConnection()
   .catch(err => {
     console.error("❌ Error de conexión a la base de datos:", err.message);
   });
-// Función para conectar y consultar
+
+// Función unificada para consultar usando el POOL
 async function query(sql, params) {
-  const connection = await mysql.createConnection(dbConfig);
   try {
-    const [results] = await connection.execute(sql, params);
+    const [results] = await pool.execute(sql, params);
     return results;
-  } finally {
-    await connection.end();
+  } catch (err) {
+    throw err;
   }
 }
 
@@ -54,5 +51,17 @@ app.get('/productos', async (req, res) => {
   }
 });
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Servidor MySQL listo en puerto ${PORT}`));
+// Ruta para guardar productos (para cuando uses el formulario de agregar)
+app.post('/productos', async (req, res) => {
+  const { nombre, precio, stock, codigo_barras } = req.body;
+  try {
+    const sql = 'INSERT INTO productos (nombre, precio, stock, codigo_barras) VALUES (?, ?, ?, ?)';
+    await query(sql, [nombre, precio, stock, codigo_barras]);
+    res.status(201).json({ message: "Producto creado" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+const PORT = process.env.PORT || 10000; // Render usa el puerto 10000 por defecto
+app.listen(PORT, () => console.log(`Servidor Tienda JP listo en puerto ${PORT}`));
