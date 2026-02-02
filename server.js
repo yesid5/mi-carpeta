@@ -124,6 +124,39 @@ const inicializarDB = async () => {
 };
 
 inicializarDB();
+// RUTA PARA PROCESAR UNA VENTA
+app.post('/ventas', async (req, res) => {
+  const { total, carrito } = req.body;
+
+  try {
+    // 1. Crear el registro de la venta
+    const resultadoVenta = await query(
+      'INSERT INTO ventas (total, metodo_pago) VALUES (?, ?)',
+      [total, 'Efectivo']
+    );
+    const ventaId = resultadoVenta.insertId;
+
+    // 2. Registrar cada producto y descontar stock
+    for (const producto of carrito) {
+      // Guardar el detalle
+      await query(
+        'INSERT INTO detalle_ventas (venta_id, producto_id, cantidad, precio_unitario) VALUES (?, ?, ?, ?)',
+        [ventaId, producto.id, producto.cantidad, producto.precio]
+      );
+
+      // DESCONTAR STOCK: La magia del inventario automático
+      await query(
+        'UPDATE productos SET stock = stock - ? WHERE id = ?',
+        [producto.cantidad, producto.id]
+      );
+    }
+
+    res.status(201).json({ message: "Venta realizada con éxito", ventaId });
+  } catch (err) {
+    console.error("Error en venta:", err);
+    res.status(500).json({ error: "No se pudo completar la venta" });
+  }
+});
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Servidor Tienda JP listo y escuchando en puerto ${PORT}`);
 });
