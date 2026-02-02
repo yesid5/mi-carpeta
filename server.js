@@ -6,7 +6,6 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// 1. Configuración del pool de conexiones
 const pool = mysql.createPool({
   host: process.env.DB_HOST,
   user: process.env.DB_USER,
@@ -14,9 +13,11 @@ const pool = mysql.createPool({
   database: process.env.DB_NAME,
   port: process.env.DB_PORT,
   ssl: {
+    // Intentemos con este cambio para forzar la conexión segura
+    minVersion: 'TLSv1.2',
     rejectUnauthorized: false
   },
-  connectTimeout: 10000, // Coma agregada aquí ✅
+  connectTimeout: 10000,
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0
