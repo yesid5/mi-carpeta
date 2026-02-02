@@ -11,18 +11,23 @@ const pool = mysql.createPool({
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
-  port: parseInt(process.env.DB_PORT) || 25076, // Fuerza el puerto como número
+  port: parseInt(process.env.DB_PORT) || 25076, // Usamos el puerto que encontramos
   ssl: {
     rejectUnauthorized: false
   },
-  connectTimeout: 30000
+  connectTimeout: 30000,
+  enableKeepAlive: true
 });
-  enableKeepAlive: true,
-  keepAliveInitialDelay: 10000,
-  waitForConnections: true,
-  connectionLimit: 5, // Bajamos el límite para que sea más estable
-  queueLimit: 0
-});
+
+// Prueba de fuego mejorada
+pool.getConnection()
+  .then(conn => {
+    console.log("🚀 ¡CONEXIÓN EXITOSA! Tienda JP está conectada a Aiven en India.");
+    conn.release();
+  })
+  .catch(err => {
+    console.error("❌ Fallo final:", err.code, err.message);
+  });
 // 2. Prueba de conexión al arrancar
 pool.getConnection()
   .then(conn => {
