@@ -11,12 +11,12 @@ const pool = mysql.createPool({
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
-  port: process.env.DB_PORT,
-  // Configuración específica para servidores distantes (India)
+  port: parseInt(process.env.DB_PORT) || 25076, // Fuerza el puerto como número
   ssl: {
     rejectUnauthorized: false
   },
-  connectTimeout: 30000, // Aumentamos a 30 seg por la distancia a India
+  connectTimeout: 30000
+});
   enableKeepAlive: true,
   keepAliveInitialDelay: 10000,
   waitForConnections: true,
