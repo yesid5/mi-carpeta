@@ -79,6 +79,28 @@ app.post('/productos', async (req, res) => {
 // 5. Puerto configurado para Render
 // Agregamos '0.0.0.0' para que Render pueda hacer el "Port Binding" correctamente
 const PORT = process.env.PORT || 10000;
+// Función para inicializar la base de datos
+const inicializarDB = async () => {
+  const sql = `
+    CREATE TABLE IF NOT EXISTS productos (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      nombre VARCHAR(255) NOT NULL,
+      precio DECIMAL(10,2) NOT NULL,
+      stock INT NOT NULL,
+      codigo_barras VARCHAR(100) UNIQUE,
+      fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+  `;
+  try {
+    await query(sql);
+    console.log("✅ Tabla 'productos' lista para usar.");
+  } catch (err) {
+    console.error("❌ Error al crear la tabla:", err.message);
+  }
+};
+
+// Llamamos a la función
+inicializarDB();
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Servidor Tienda JP listo y escuchando en puerto ${PORT}`);
 });
