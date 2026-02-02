@@ -157,6 +157,22 @@ app.post('/ventas', async (req, res) => {
     res.status(500).json({ error: "No se pudo completar la venta" });
   }
 });
+// RUTA PARA REPORTE DE VENTAS DIARIAS
+app.get('/reporte-hoy', async (req, res) => {
+  try {
+    const sql = `
+      SELECT 
+        COUNT(*) as total_ventas, 
+        IFNULL(SUM(total), 0) as dinero_total 
+      FROM ventas 
+      WHERE DATE(fecha) = CURDATE()
+    `;
+    const [resultado] = await query(sql);
+    res.json(resultado);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Servidor Tienda JP listo y escuchando en puerto ${PORT}`);
 });
