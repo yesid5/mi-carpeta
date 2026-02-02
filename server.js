@@ -135,7 +135,36 @@ app.get('/reporte-hoy', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+// EDITAR PRODUCTO (Actualiza nombre, precio, stock o código)
+app.put('/productos/:id', async (req, res) => {
+  const { id } = req.params;
+  const { nombre, precio, stock, codigo_barras } = req.body;
+  try {
+    await query(
+      'UPDATE productos SET nombre = ?, precio = ?, stock = ?, codigo_barras = ? WHERE id = ?',
+      [nombre, precio, stock, codigo_barras, id]
+    );
+    res.json({ message: "Producto actualizado correctamente" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
+// ELIMINAR PRODUCTO
+app.delete('/productos/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    // Nota: Si el producto ya tiene ventas, MySQL dará error por la "Llave Foránea".
+    // Esto es bueno porque evita borrar historial de ventas real.
+    await query('DELETE FROM productos WHERE id = ?', [id]);
+    res.json({ message: "Producto eliminado correctamente" });
+  } catch (err) {
+    res.status(500).json({ 
+      error: "No se puede eliminar", 
+      detalle: "Este producto tiene ventas registradas y no puede borrarse para no alterar el historial." 
+    });
+  }
+});
 // 5. Encendido del Servidor
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, '0.0.0.0', () => {
