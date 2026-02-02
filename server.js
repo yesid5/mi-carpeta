@@ -12,18 +12,16 @@ const pool = mysql.createPool({
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
   port: process.env.DB_PORT,
+  // Configuración específica para servidores distantes (India)
   ssl: {
-    // Esto obliga a usar TLS pero ignora la verificación de certificado local
     rejectUnauthorized: false
   },
-  // Aumentamos el tiempo de espera por si la conexión a India (Bangalore) es lenta
-  connectTimeout: 20000, 
-  waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0,
-  // Esta opción ayuda a mantener la conexión viva
+  connectTimeout: 30000, // Aumentamos a 30 seg por la distancia a India
   enableKeepAlive: true,
-  keepAliveInitialDelay: 10000
+  keepAliveInitialDelay: 10000,
+  waitForConnections: true,
+  connectionLimit: 5, // Bajamos el límite para que sea más estable
+  queueLimit: 0
 });
 // 2. Prueba de conexión al arrancar
 pool.getConnection()
