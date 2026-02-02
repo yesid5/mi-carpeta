@@ -81,25 +81,48 @@ app.post('/productos', async (req, res) => {
 const PORT = process.env.PORT || 10000;
 // Función para inicializar la base de datos
 const inicializarDB = async () => {
-  const sql = `
-    CREATE TABLE IF NOT EXISTS productos (
-      id INT AUTO_INCREMENT PRIMARY KEY,
-      nombre VARCHAR(255) NOT NULL,
-      precio DECIMAL(10,2) NOT NULL,
-      stock INT NOT NULL,
-      codigo_barras VARCHAR(100) UNIQUE,
-      fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    );
-  `;
   try {
-    await query(sql);
-    console.log("✅ Tabla 'productos' lista para usar.");
+    // 1. Tabla de Productos
+    await query(`
+      CREATE TABLE IF NOT EXISTS productos (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        nombre VARCHAR(255) NOT NULL,
+        precio DECIMAL(10,2) NOT NULL,
+        stock INT NOT NULL,
+        codigo_barras VARCHAR(100) UNIQUE,
+        fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // 2. Tabla de Ventas (El encabezado: quién, cuándo y cuánto)
+    await query(`
+      CREATE TABLE IF NOT EXISTS ventas (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        total DECIMAL(10,2) NOT NULL,
+        metodo_pago VARCHAR(50) DEFAULT 'Efectivo'
+      )
+    `);
+
+    // 3. Tabla de Detalle de Ventas (Qué productos hubo en cada venta)
+    await query(`
+      CREATE TABLE IF NOT EXISTS detalle_ventas (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        venta_id INT,
+        producto_id INT,
+        cantidad INT NOT NULL,
+        precio_unitario DECIMAL(10,2) NOT NULL,
+        FOREIGN KEY (venta_id) REFERENCES ventas(id),
+        FOREIGN KEY (producto_id) REFERENCES productos(id)
+      )
+    `);
+
+    console.log("🚀 Estructura de Tienda JP (Productos y Ventas) lista.");
   } catch (err) {
-    console.error("❌ Error al crear la tabla:", err.message);
+    console.error("❌ Error al inicializar tablas:", err.message);
   }
 };
 
-// Llamamos a la función
 inicializarDB();
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Servidor Tienda JP listo y escuchando en puerto ${PORT}`);
