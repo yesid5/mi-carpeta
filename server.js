@@ -50,7 +50,13 @@ app.get('/productos', async (req, res) => {
     const rows = await query('SELECT * FROM productos ORDER BY id DESC');
     res.json(rows);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    // Esto nos dirá exactamente qué está pasando en los logs
+    console.error("DETALLE DEL ERROR:", err);
+    res.status(500).json({ 
+      error: "Error de DB", 
+      codigo: err.code, 
+      mensaje: err.sqlMessage || "Error desconocido" 
+    });
   }
 });
 
