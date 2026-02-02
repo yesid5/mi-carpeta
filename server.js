@@ -13,16 +13,18 @@ const pool = mysql.createPool({
   database: process.env.DB_NAME,
   port: process.env.DB_PORT,
   ssl: {
-    // Intentemos con este cambio para forzar la conexión segura
-    minVersion: 'TLSv1.2',
+    // Esto obliga a usar TLS pero ignora la verificación de certificado local
     rejectUnauthorized: false
   },
-  connectTimeout: 10000,
+  // Aumentamos el tiempo de espera por si la conexión a India (Bangalore) es lenta
+  connectTimeout: 20000, 
   waitForConnections: true,
   connectionLimit: 10,
-  queueLimit: 0
+  queueLimit: 0,
+  // Esta opción ayuda a mantener la conexión viva
+  enableKeepAlive: true,
+  keepAliveInitialDelay: 10000
 });
-
 // 2. Prueba de conexión al arrancar
 pool.getConnection()
   .then(conn => {
