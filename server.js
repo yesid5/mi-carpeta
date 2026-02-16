@@ -72,7 +72,12 @@ const inicializarDB = async () => {
 };
 inicializarDB();
 
-// 4. RUTAS DE LA API
+// --- 4. RUTAS DE LA API ---
+
+// RUTA DE INICIO (Evita el error 404 al abrir la URL principal)
+app.get('/', (req, res) => {
+  res.send('🏪 Servidor Tienda JP: ONLINE Y CONECTADO');
+});
 
 // Obtener todos los productos
 app.get('/productos', async (req, res) => {
@@ -81,6 +86,23 @@ app.get('/productos', async (req, res) => {
     res.json(rows);
   } catch (err) {
     res.status(500).json({ error: "Error de DB", mensaje: err.message });
+  }
+});
+
+// Reporte de ventas de hoy
+app.get('/reporte-hoy', async (req, res) => {
+  try {
+    const sql = `
+      SELECT 
+        COUNT(*) as total_ventas, 
+        IFNULL(SUM(total), 0) as dinero_total 
+      FROM ventas 
+      WHERE DATE(fecha) = CURDATE()
+    `;
+    const resultado = await query(sql);
+    res.json(resultado[0]); 
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 
@@ -119,23 +141,7 @@ app.post('/ventas', async (req, res) => {
   }
 });
 
-// Reporte de ventas de hoy
-app.get('/reporte-hoy', async (req, res) => {
-  try {
-    const sql = `
-      SELECT 
-        COUNT(*) as total_ventas, 
-        IFNULL(SUM(total), 0) as dinero_total 
-      FROM ventas 
-      WHERE DATE(fecha) = CURDATE()
-    `;
-    const resultado = await query(sql); // Cambiado: ya no desestructuramos aquí
-    res.json(resultado[0]); // Devolvemos el primer (y único) objeto
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-// EDITAR PRODUCTO (Actualiza nombre, precio, stock o código)
+// EDITAR PRODUCTO
 app.put('/productos/:id', async (req, res) => {
   const { id } = req.params;
   const { nombre, precio, stock, codigo_barras } = req.body;
@@ -144,7 +150,7 @@ app.put('/productos/:id', async (req, res) => {
       'UPDATE productos SET nombre = ?, precio = ?, stock = ?, codigo_barras = ? WHERE id = ?',
       [nombre, precio, stock, codigo_barras, id]
     );
-    res.json({ message: "Producto actualizado correctamente" });
+    res.json({ message: "Producto actualizado" });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -154,31 +160,25 @@ app.put('/productos/:id', async (req, res) => {
 app.delete('/productos/:id', async (req, res) => {
   const { id } = req.params;
   try {
-    // Nota: Si el producto ya tiene ventas, MySQL dará error por la "Llave Foránea".
-    // Esto es bueno porque evita borrar historial de ventas real.
     await query('DELETE FROM productos WHERE id = ?', [id]);
-    res.json({ message: "Producto eliminado correctamente" });
+    res.json({ message: "Producto eliminado" });
   } catch (err) {
-    res.status(500).json({ 
-      error: "No se puede eliminar", 
-      detalle: "Este producto tiene ventas registradas y no puede borrarse para no alterar el historial." 
-    });
+    res.status(500).json({ error: "Error al eliminar. Puede que tenga ventas asociadas." });
   }
 });
-// BUSCAR PRODUCTO POR CÓDIGO DE BARRAS (Para el Escáner)
+
+// BUSCAR POR CÓDIGO
 app.get('/productos/scanner/:codigo', async (req, res) => {
   const { codigo } = req.params;
   try {
     const rows = await query('SELECT * FROM productos WHERE codigo_barras = ?', [codigo]);
-    if (rows.length > 0) {
-      res.json(rows[0]);
-    } else {
-      res.status(404).json({ message: "Producto no encontrado" });
-    }
+    if (rows.length > 0) res.json(rows[0]);
+    else res.status(404).json({ message: "No encontrado" });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
+
 // 5. Encendido del Servidor
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, '0.0.0.0', () => {
