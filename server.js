@@ -165,6 +165,20 @@ app.delete('/productos/:id', async (req, res) => {
     });
   }
 });
+// BUSCAR PRODUCTO POR CÓDIGO DE BARRAS (Para el Escáner)
+app.get('/productos/scanner/:codigo', async (req, res) => {
+  const { codigo } = req.params;
+  try {
+    const rows = await query('SELECT * FROM productos WHERE codigo_barras = ?', [codigo]);
+    if (rows.length > 0) {
+      res.json(rows[0]);
+    } else {
+      res.status(404).json({ message: "Producto no encontrado" });
+    }
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 // 5. Encendido del Servidor
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, '0.0.0.0', () => {
