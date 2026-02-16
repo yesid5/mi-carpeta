@@ -1,4 +1,5 @@
 const { useState, useEffect } = React;
+const [busqueda, setBusqueda] = useState('');
 
 const POSApp = () => {
   // --- ESTADOS ---
@@ -109,7 +110,11 @@ const POSApp = () => {
   };
 
   const total = carrito.reduce((acc, item) => acc + item.precio * item.cantidad, 0);
-
+  // Filtra productos por nombre o por código de barras simultáneamente
+const productosFiltrados = productosDB.filter(p => 
+  p.nombre.toLowerCase().includes(busqueda.toLowerCase()) || 
+  p.codigo_barras.includes(busqueda)
+);
   // --- INTERFAZ ---
   return /*#__PURE__*/(
     React.createElement("div", { className: "pos-container" }, /*#__PURE__*/
