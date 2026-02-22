@@ -162,6 +162,29 @@ app.post('/productos', async (req, res) => {
     res.status(201).json({ message: "Producto creado" });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
+app.get('/historial-compras', async (req, res) => {
+  try {
+    const sql = `
+      SELECT 
+        h.id, 
+        p.nombre as producto, 
+        h.proveedor, 
+        h.numero_factura, 
+        h.cantidad, 
+        h.precio_unitario_costo as costo,
+        h.iva_porcentaje as iva,
+        h.fecha_registro as fecha
+      FROM historial_compras h
+      JOIN productos p ON h.producto_id = p.id
+      ORDER BY h.fecha_registro DESC
+      LIMIT 100
+    `;
+    const rows = await query(sql);
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: "Error al obtener historial", detalle: err.message });
+  }
+});
 
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, '0.0.0.0', () => console.log(`🚀 Servidor en puerto ${PORT}`));
