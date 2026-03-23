@@ -108,19 +108,19 @@ app.post('/compras', async (req, res) => {
         await pool.query(
             `INSERT INTO historial_compras 
             (producto_id, numero_factura, proveedor, cantidad, precio_unitario_costo, iva_porcentaje, icui_valor, ibua_valor, fecha_vencimiento) 
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)`,
             [productoId, numeroFactura, proveedor, cantidad, precioUnitario, iva, icui, ibua, fechaVencimiento || null]
         );
 
         // 2. Actualizar el stock y el precio de costo en la tabla productos
         await pool.query(
             `UPDATE productos SET 
-                stock = stock + $1, 
-                precio_costo = $2,
-                ultimo_iva = $3,
-                ultimo_icui = $4,
-                ultimo_ibua = $5
-             WHERE id = $6`,
+                stock = stock + ?1, 
+                precio_costo = ?2,
+                ultimo_iva = ?3,
+                ultimo_icui = ?4,
+                ultimo_ibua = ?5
+             WHERE id = ?6`,
             [cantidad, precioUnitario, iva, icui, ibua, productoId]
         );
 
@@ -180,14 +180,14 @@ app.post('/compras', async (req, res) => {
         const nuevaCompra = await pool.query(
             `INSERT INTO compras 
             (producto_id, cantidad, precio_unitario, iva, icui, ibua, numero_factura, proveedor, total_costo) 
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
+            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9) RETURNING *`,
             [productoId, cantidad, precioUnitario, iva, icui, ibua, numeroFactura, proveedor, costoTotalFactura]
         );
 
         // 3. ACTUALIZACIÓN AUTOMÁTICA DE STOCK
         // Sumamos la cantidad ingresada al stock actual del producto
         await pool.query(
-            'UPDATE productos SET stock = stock + $1 WHERE id = $2',
+            'UPDATE productos SET stock = stock + ?1 WHERE id = ?2',
             [cantidad, productoId]
         );
 
