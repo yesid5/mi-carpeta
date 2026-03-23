@@ -80,9 +80,45 @@ const POSApp = () => {
   };
 
   const registrarFactura = async () => {
+    // Validar datos básicos
     if (!factura.productoId || !factura.cantidad || !factura.precioUnitario) {
       return alert("Faltan datos obligatorios (Producto, Cantidad, Costo)");
     }
+
+    // LIMPIEZA DE DATOS: Asegurar que todo lo que vaya a la DB sea del tipo correcto
+    const datosParaEnviar = {
+      productoId: parseInt(factura.productoId),
+      cantidad: parseInt(factura.cantidad),
+      precioUnitario: parseFloat(factura.precioUnitario),
+      iva: parseInt(factura.iva) || 0,
+      icui: parseFloat(factura.icui) || 0,
+      ibua: parseFloat(factura.ibua) || 0,
+      numeroFactura: factura.numeroFactura || "S/N",
+      proveedor: factura.proveedor || "Genérico",
+      fechaVencimiento: factura.fechaVencimiento || null
+    };
+
+    try {
+      const res = await fetch(`${API_URL}/compras`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(datosParaEnviar)
+      });
+
+      if (res.ok) {
+        alert("✅ Inventario cargado correctamente");
+        setMostrarFactura(false);
+        // Resetear formulario
+        setFactura({ productoId: '', cantidad: '', precioUnitario: '', iva: 0, icui: 0, ibua: 0, numeroFactura: '', fechaVencimiento: '', proveedor: '' });
+        cargarProductos();
+      } else {
+        const errorServidor = await res.json();
+        alert("❌ Error del servidor: " + (errorServidor.detalle || "Error desconocido"));
+      }
+    } catch (e) { 
+      alert("❌ Error de conexión. Revisa que Render esté ONLINE."); 
+    }
+  };
     
     // Asegurar que los valores numéricos no sean undefined
     const datosFactura = {
