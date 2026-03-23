@@ -12,7 +12,7 @@ const POSApp = () => {
   const [statusDB, setStatusDB] = useState('conectando'); // online, offline, conectando
 
   // URL de tu servidor en Render (Asegúrate de cambiarla)
-  const API_URL = 'https://tu-api-aqui.com';
+  const API_URL = 'https://mi-carpeta.onrender.com/';
 
   // --- 1. CARGA DE DATOS ---
   const cargarProductos = async () => {
