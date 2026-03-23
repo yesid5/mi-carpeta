@@ -132,6 +132,46 @@ app.post('/productos', async (req, res) => {
     res.status(201).json({ message: "Producto creado" });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
+// RUTA: POST /compras
+app.post('/compras', async (req, res) => {
+    const { 
+        productoId, cantidad, precioUnitario, 
+        iva, icui, ibua, numeroFactura, proveedor 
+    } = req.body;
+
+    try {
+        // 1. Calcular el subtotal y los impuestos
+        const subtotal = cantidad * precioUnitario;
+        const valorIVA = subtotal * (iva / 100);
+        // ICUI e IBUA suelen ser valores fijos por unidad en la factura
+        const totalImpuestos = valorIVA + (icui * cantidad) + (ibua * cantidad);
+        const costoTotalFactura = subtotal + totalImpuestos;
+
+        // 2. Insertar el registro de la compra
+        const nuevaCompra = await pool.query(
+            `INSERT INTO compras 
+            (producto_id, cantidad, precio_unitario, iva, icui, ibua, numero_factura, proveedor, total_costo) 
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
+            [productoId, cantidad, precioUnitario, iva, icui, ibua, numeroFactura, proveedor, costoTotalFactura]
+        );
+
+        // 3. ACTUALIZACIÓN AUTOMÁTICA DE STOCK
+        // Sumamos la cantidad ingresada al stock actual del producto
+        await pool.query(
+            'UPDATE productos SET stock = stock + $1 WHERE id = $2',
+            [cantidad, productoId]
+        );
+
+        res.status(201).json({
+            mensaje: "Inventario actualizado exitosamente",
+            compra: nuevaCompra.rows[0]
+        });
+
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send("Error en el servidor al registrar la compra");
+    }
+});
 
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, '0.0.0.0', () => {
