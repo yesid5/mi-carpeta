@@ -198,11 +198,15 @@ app.post('/ventas', async (req, res) => {
     }
 
     res.json({ message: "Venta registrada con éxito", ventaId });
-  } catch (err) {
-    console.error("Error detallado:", err);
-    res.status(500).json({ error: "Error al procesar la venta", detalle: err.message });
+ } catch (err) {
+    console.error("❌ ERROR DETALLADO EN VENTAS:", err);
+    // Esto nos dirá si es un problema de stock, de conexión o de parámetros
+    res.status(500).json({ 
+      error: "Error interno en el servidor", 
+      detalle: err.message,
+      codigo: err.code 
+    });
   }
-});
 
 // 4. Encendido del Servidor
 const PORT = process.env.PORT || 10000;
