@@ -1,13 +1,66 @@
-:root { --primary: #28a745; --bg: #f4f7f6; }
+:root { 
+  --primary: #28a745; 
+  --primary-dark: #218838;
+  --bg: #f4f7f6; 
+  --white: #ffffff;
+  --border: #ddd;
+  --blue: #007bff;
+  --orange: #f39c12;
+}
+
 body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; }
-.pos-container { display: flex; height: 100vh; }
-.main-panel { flex: 2; padding: 20px; overflow-y: auto; }
-.sidebar { flex: 1; background: white; padding: 20px; border-left: 2px solid #ddd; display: flex; flex-direction: column; }
-header input { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #ccc; margin: 15px 0; }
-.product-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 15px; }
-.product-card { background: white; padding: 15px; border-radius: 12px; cursor: pointer; text-align: center; transition: 0.2s; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-.product-card:hover { transform: translateY(-3px); box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
-.btn-pay { width: 100%; padding: 15px; background: var(--primary); color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 1.1rem; }
-.btn-report { width: 100%; padding: 10px; background: #6c757d; color: white; border: none; border-radius: 8px; margin-top: 10px; cursor: pointer; }
-.modal { position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); display:flex; justify-content:center; align-items:center; }
-.modal-content { background:white; padding:30px; border-radius:15px; text-align:center; }
+.pos-container { display: flex; height: 100vh; overflow: hidden; }
+
+.main-panel { flex: 3; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; }
+.sidebar { flex: 0.7; min-width: 280px; background: var(--white); padding: 15px; border-left: 1px solid var(--border); display: flex; flex-direction: column; }
+
+.pos-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+.header-actions { display: flex; align-items: center; gap: 15px; }
+
+.btn-admin-access { background: #eee; border: 1px solid #ccc; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 0.75rem; }
+.btn-admin-access.active { background: #333; color: white; }
+
+.management-buttons { display: flex; gap: 10px; margin-bottom: 20px; }
+.btn-manage { flex: 1; padding: 10px; border: none; border-radius: 8px; color: white; font-weight: 600; cursor: pointer; font-size: 0.85rem; }
+.btn-green { background: var(--primary); }
+.btn-orange { background: var(--orange); }
+.btn-blue { background: var(--blue); }
+
+.search-bar-container { display: flex; gap: 10px; margin-bottom: 15px; }
+.search-input { flex: 1; padding: 12px; border-radius: 8px; border: 1px solid var(--border); font-size: 1rem; }
+.btn-icon { padding: 0 15px; border-radius: 8px; border: none; background: #333; color: white; cursor: pointer; }
+
+.product-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; }
+.product-card { background: white; padding: 12px; border-radius: 10px; text-align: center; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+.price { color: var(--primary); font-weight: bold; font-size: 1.1rem; margin: 8px 0; }
+.stock { font-size: 0.75rem; color: #888; }
+.stock.low { color: red; font-weight: bold; }
+
+/* ESTILOS ESPECÍFICOS DEL MODAL DE FACTURA */
+.factura-modal { width: 400px !important; }
+.input-group-row { display: flex; gap: 10px; }
+.tax-grid { 
+  display: grid; 
+  grid-template-columns: 1fr 1fr 1fr; 
+  gap: 10px; 
+  margin: 15px 0; 
+  background: #f9f9f9;
+  padding: 10px;
+  border-radius: 8px;
+}
+.tax-grid label { font-size: 0.7rem; font-weight: bold; color: #666; display: block; margin-bottom: 5px; }
+.tax-grid .input-form { margin: 0; padding: 8px; font-size: 0.9rem; }
+
+.cart-list { flex: 1; overflow-y: auto; }
+.cart-item { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee; }
+.total-section { background: #f8f9fa; padding: 15px; border-radius: 10px; border: 1px solid #eee; }
+.btn-pay { width: 100%; padding: 15px; background: var(--primary); color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; }
+
+.modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: flex; justify-content: center; align-items: center; z-index: 1000; }
+.modal-content { background: white; padding: 25px; border-radius: 15px; box-shadow: 0 5px 25px rgba(0,0,0,0.3); text-align: center; }
+.input-form { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; }
+.btn-close { background: none; border: none; color: #888; text-decoration: underline; cursor: pointer; margin-top: 15px; }
+
+.status-badge { font-size: 0.65rem; padding: 4px 10px; border-radius: 20px; color: white; font-weight: bold; }
+.status-badge.online { background: var(--primary); }
+.status-badge.offline { background: #e74c3c; }
