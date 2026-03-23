@@ -143,6 +143,36 @@ const POSApp = () => {
       }
     } catch (e) { alert("Error al registrar entrada de mercancía"); }
   };
+  const guardarProducto = async () => {
+    if (!nuevoP.nombre || !nuevoP.precio) return alert("Completa los datos");
+
+    // Preparamos el objeto con los nombres que espera la base de datos
+    const productoParaEnviar = {
+        nombre: nuevoP.nombre,
+        precio_venta: parseFloat(nuevoP.precio), // Asegúrate que sea número
+        stock: parseInt(nuevoP.stock) || 0,
+        codigo_barras: nuevoP.codigo_barras || ''
+    };
+
+    try {
+        const res = await fetch(`${API_URL}/productos`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(productoParaEnviar) 
+        });
+        
+        if (res.ok) {
+            alert("✅ Producto Creado");
+            setMostrarInventario(false);
+            cargarProductos();
+        } else {
+            const error = await res.json();
+            alert("❌ Error del servidor: " + error.mensaje);
+        }
+    } catch (e) {
+        alert("❌ Error de red al guardar");
+    }
+};
 
   const total = carrito.reduce((acc, item) => acc + (item.precio * item.cantidad), 0);
   const productosFiltrados = productosDB.filter(p => 
