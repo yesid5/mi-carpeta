@@ -95,6 +95,7 @@ app.get('/productos', async (req, res) => {
 });
 
 // server.js - Backend
+// server.js - Versión para MySQL
 app.post('/compras', async (req, res) => {
     const { 
         productoId, numeroFactura, proveedor, cantidad, 
@@ -102,15 +103,34 @@ app.post('/compras', async (req, res) => {
     } = req.body;
 
     try {
-        await pool.query('BEGIN');
-
-        // 1. Insertar en historial_compras (Nombres exactos de tu SQL)
-        await pool.query(
-            `INSERT INTO historial_compras 
+        // En MySQL las transacciones se manejan según el driver, 
+        // pero lo más importante son los signos '?'
+        
+        // 1. Insertar en historial_compras
+        const sqlHistorial = `INSERT INTO historial_compras 
             (producto_id, numero_factura, proveedor, cantidad, precio_unitario_costo, iva_porcentaje, icui_valor, ibua_valor, fecha_vencimiento) 
-            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)`,
-            [productoId, numeroFactura, proveedor, cantidad, precioUnitario, iva, icui, ibua, fechaVencimiento || null]
-        );
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+        
+        await pool.query(sqlHistorial, [productoId, numeroFactura, proveedor, cantidad, precioUnitario, iva, icui, ibua, fechaVencimiento]);
+
+        // 2. Actualizar el producto
+        const sqlUpdate = `UPDATE productos SET 
+                stock = stock + ?, 
+                precio_costo = ?,
+                ultimo_iva = ?,
+                ultimo_icui = ?,
+                ultimo_ibua = ?
+             WHERE id = ?`;
+
+        await pool.query(sqlUpdate, [cantidad, precioUnitario, iva, icui, ibua, productoId]);
+
+        res.status(201).json({ mensaje: "Compra registrada con éxito" });
+
+    } catch (err) {
+        console.error("ERROR EN COMPRAS:", err.message);
+        res.status(500).json({ error: err.message });
+    }
+});
 
         // 2. Actualizar el stock y el precio de costo en la tabla productos
         await pool.query(
