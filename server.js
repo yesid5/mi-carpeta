@@ -94,15 +94,44 @@ app.get('/productos', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// server.js - Backend
 app.post('/compras', async (req, res) => {
-  const { productoId, cantidad, precioUnitario, iva, icui, ibua, numeroFactura, proveedor, fechaVencimiento } = req.body;
-  try {
-    await query(`UPDATE productos SET stock = stock + ?, precio_costo = ?, ultimo_iva = ?, ultimo_icui = ?, ultimo_ibua = ? WHERE id = ?`, 
-      [cantidad, precioUnitario, iva || 0, icui || 0, ibua || 0, productoId]);
-    await query(`INSERT INTO historial_compras (producto_id, numero_factura, proveedor, cantidad, precio_unitario_costo, iva_porcentaje, icui_valor, ibua_valor, fecha_vencimiento) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [productoId, numeroFactura, proveedor, cantidad, precioUnitario, iva, icui, ibua, fechaVencimiento || null]);
-    res.json({ message: "Inventario actualizado" });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+    const { 
+        productoId, numeroFactura, proveedor, cantidad, 
+        precioUnitario, iva, icui, ibua, fechaVencimiento 
+    } = req.body;
+
+    try {
+        await pool.query('BEGIN');
+
+        // 1. Insertar en historial_compras (Nombres exactos de tu SQL)
+        await pool.query(
+            `INSERT INTO historial_compras 
+            (producto_id, numero_factura, proveedor, cantidad, precio_unitario_costo, iva_porcentaje, icui_valor, ibua_valor, fecha_vencimiento) 
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+            [productoId, numeroFactura, proveedor, cantidad, precioUnitario, iva, icui, ibua, fechaVencimiento || null]
+        );
+
+        // 2. Actualizar el stock y el precio de costo en la tabla productos
+        await pool.query(
+            `UPDATE productos SET 
+                stock = stock + $1, 
+                precio_costo = $2,
+                ultimo_iva = $3,
+                ultimo_icui = $4,
+                ultimo_ibua = $5
+             WHERE id = $6`,
+            [cantidad, precioUnitario, iva, icui, ibua, productoId]
+        );
+
+        await pool.query('COMMIT');
+        res.status(201).json({ mensaje: "Compra registrada y stock actualizado" });
+
+    } catch (err) {
+        await pool.query('ROLLBACK');
+        console.error("ERROR EN COMPRAS:", err.message);
+        res.status(500).json({ error: err.message });
+    }
 });
 
 app.post('/ventas', async (req, res) => {
