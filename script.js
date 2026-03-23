@@ -31,7 +31,7 @@ const POSApp = () => {
     proveedor: ''
   });
 
-  const API_URL = "https://mi-carpeta.onrender.com"; // Sin barra al final
+  const API_URL = "https://mi-carpeta.onrender.com"; 
   const CLAVE_ADMIN = "1234"; 
 
   // --- 2. FUNCIONES ---
@@ -80,12 +80,10 @@ const POSApp = () => {
   };
 
   const registrarFactura = async () => {
-    // Validar datos básicos
     if (!factura.productoId || !factura.cantidad || !factura.precioUnitario) {
       return alert("Faltan datos obligatorios (Producto, Cantidad, Costo)");
     }
 
-    // LIMPIEZA DE DATOS: Asegurar que todo lo que vaya a la DB sea del tipo correcto
     const datosParaEnviar = {
       productoId: parseInt(factura.productoId),
       cantidad: parseInt(factura.cantidad),
@@ -108,7 +106,6 @@ const POSApp = () => {
       if (res.ok) {
         alert("✅ Inventario cargado correctamente");
         setMostrarFactura(false);
-        // Resetear formulario
         setFactura({ productoId: '', cantidad: '', precioUnitario: '', iva: 0, icui: 0, ibua: 0, numeroFactura: '', fechaVencimiento: '', proveedor: '' });
         cargarProductos();
       } else {
@@ -116,33 +113,8 @@ const POSApp = () => {
         alert("❌ Error del servidor: " + (errorServidor.detalle || "Error desconocido"));
       }
     } catch (e) { 
-      alert("❌ Error de conexión. Revisa que Render esté ONLINE."); 
+      alert("❌ Error de conexión con el servidor."); 
     }
-  };
-    
-    // Asegurar que los valores numéricos no sean undefined
-    const datosFactura = {
-        ...factura,
-        iva: parseInt(factura.iva) || 0,
-        icui: parseFloat(factura.icui) || 0,
-        ibua: parseFloat(factura.ibua) || 0,
-        cantidad: parseInt(factura.cantidad),
-        precioUnitario: parseFloat(factura.precioUnitario)
-    };
-
-    try {
-      const res = await fetch(`${API_URL}/compras`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(datosFactura)
-      });
-      if (res.ok) {
-        alert("✅ Inventario cargado correctamente");
-        setMostrarFactura(false);
-        setFactura({ productoId: '', cantidad: '', precioUnitario: '', iva: 0, icui: 0, ibua: 0, numeroFactura: '', fechaVencimiento: '', proveedor: '' });
-        cargarProductos();
-      }
-    } catch (e) { alert("Error en factura"); }
   };
 
   const agregarAlCarrito = (p) => {
@@ -159,7 +131,6 @@ const POSApp = () => {
     if (carrito.length === 0) return;
     setCargando(true);
     
-    // Limpiamos los datos para que el servidor no reciba undefined
     const datosVenta = {
         total: parseFloat(total),
         metodo_pago: 'Efectivo',
@@ -320,5 +291,4 @@ const POSApp = () => {
     )
   );
 };
-
 ReactDOM.render(React.createElement(POSApp, null), document.getElementById('root'));
