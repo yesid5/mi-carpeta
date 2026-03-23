@@ -165,19 +165,43 @@ app.post('/productos', async (req, res) => {
 
 // Procesar una Venta
 app.post('/ventas', async (req, res) => {
+  // 1. Extraemos los datos del cuerpo de la petición
   const { total, carrito, metodo_pago } = req.body;
+
   try {
-    const resVenta = await query('INSERT INTO ventas (total, metodo_pago) VALUES (?, ?)', [total, metodo_pago]);
+    // CORRECCIÓN: Si metodo_pago es undefined, usamos 'Efectivo' por defecto
+    const pagoSeguro = metodo_pago || 'Efectivo';
+
+    // Insertar la venta principal
+    const resVenta = await query(
+      'INSERT INTO ventas (total, metodo_pago) VALUES (?, ?)', 
+      [total, pagoSeguro]
+    );
+    
     const ventaId = resVenta.insertId;
 
+    // Insertar cada producto del carrito
     for (const item of carrito) {
-      await query('INSERT INTO detalle_ventas (venta_id, producto_id, cantidad, precio_unitario) VALUES (?, ?, ?, ?)',
-        [ventaId, item.id, item.cantidad, item.precio]);
+      // SEGURIDAD: Validamos que el producto tenga ID y precio antes de insertar
+      if (!item.id || item.precio === undefined) {
+        console.error("Producto incompleto en el carrito:", item);
+        continue; // Salta este producto si está mal formado
+      }
+
+      await query(
+        'INSERT INTO detalle_ventas (venta_id, producto_id, cantidad, precio_unitario) VALUES (?, ?, ?, ?)',
+        [ventaId, item.id, item.cantidad, item.precio]
+      );
       
+      // Restar del stock
       await query('UPDATE productos SET stock = stock - ? WHERE id = ?', [item.cantidad, item.id]);
     }
-    res.json({ message: "Venta registrada con éxito" });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+
+    res.json({ message: "Venta registrada con éxito", ventaId });
+  } catch (err) {
+    console.error("Error detallado:", err);
+    res.status(500).json({ error: "Error al procesar la venta", detalle: err.message });
+  }
 });
 
 // 4. Encendido del Servidor
