@@ -1,20 +1,40 @@
 const { useState, useEffect } = React;
 
 const POSApp = () => {
-  // --- ESTADOS ---
+  // --- 1. ESTADOS ---
   const [productosDB, setProductosDB] = useState([]);
   const [carrito, setCarrito] = useState([]);
   const [busqueda, setBusqueda] = useState('');
-  const [reporte, setReporte] = useState(null);
-  const [mostrarReporte, setMostrarReporte] = useState(false);
-  const [escaneando, setEscaneando] = useState(false);
+  const [statusDB, setStatusDB] = useState('conectando');
   const [cargando, setCargando] = useState(false);
-  const [statusDB, setStatusDB] = useState('conectando'); // online, offline, conectando
+  
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [mostrarLogin, setMostrarLogin] = useState(false);
+  const [pin, setPin] = useState('');
+  
+  const [mostrarReporte, setMostrarReporte] = useState(false);
+  const [mostrarInventario, setMostrarInventario] = useState(false);
+  const [mostrarFactura, setMostrarFactura] = useState(false);
+  const [escaneando, setEscaneando] = useState(false);
 
-  // URL de tu servidor en Render (Asegúrate de cambiarla)
-  const API_URL = 'https://mi-carpeta.onrender.com';
+  const [nuevoP, setNuevoP] = useState({ nombre: '', precio: '', stock: '', codigo_barras: '' });
+  
+  const [factura, setFactura] = useState({ 
+    productoId: '', 
+    cantidad: '', 
+    precioUnitario: '', 
+    iva: 0, 
+    icui: 0, 
+    ibua: 0,
+    numeroFactura: '',
+    fechaVencimiento: '',
+    proveedor: ''
+  });
 
-  // --- 1. CARGA DE DATOS ---
+  const API_URL = "https://mi-carpeta.onrender.com"; // Sin barra al final
+  const CLAVE_ADMIN = "1234"; 
+
+  // --- 2. FUNCIONES ---
   const cargarProductos = async () => {
     try {
       setStatusDB('conectando');
@@ -23,185 +43,246 @@ const POSApp = () => {
         const datos = await res.json();
         setProductosDB(datos);
         setStatusDB('online');
-      } else {
-        setStatusDB('offline');
-      }
-    } catch (err) {
-      console.error("Error de conexión:", err);
-      setStatusDB('offline');
+      } else { setStatusDB('offline'); }
+    } catch (err) { setStatusDB('offline'); }
+  };
+
+  useEffect(() => { cargarProductos(); }, []);
+
+  const manejarLogin = () => {
+    if (pin === CLAVE_ADMIN) {
+      setIsAdmin(true);
+      setMostrarLogin(false);
+      setPin('');
+    } else {
+      alert("❌ Clave incorrecta");
+      setPin('');
     }
   };
 
-  useEffect(() => {
-    cargarProductos();
-  }, []);
+  const cerrarSesionAdmin = () => setIsAdmin(false);
 
-  // --- 2. LÓGICA DEL ESCÁNER ---
-  useEffect(() => {
-    let html5QrCode;
-    if (escaneando) {
-      html5QrCode = new Html5Qrcode("reader");
-      html5QrCode.start(
-      { facingMode: "environment" },
-      { fps: 10, qrbox: { width: 250, height: 150 } },
-      decodedText => {
-        const p = productosDB.find(prod => prod.codigo_barras === decodedText);
-        if (p) {
-          agregarAlCarrito(p);
-          setEscaneando(false);
-          html5QrCode.stop();
-        }
-      }).
-      catch(err => console.log("La cámara no pudo iniciar o no hay permisos."));
-    }
-    return () => {
-      if (html5QrCode && html5QrCode.isScanning) {
-        html5QrCode.stop().catch(err => console.log("Error al detener cámara"));
+  const guardarProducto = async () => {
+    if (!nuevoP.nombre || !nuevoP.precio) return alert("Completa los datos");
+    try {
+      const res = await fetch(`${API_URL}/productos`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(nuevoP)
+      });
+      if (res.ok) {
+        alert("✅ Producto Creado");
+        setMostrarInventario(false);
+        setNuevoP({ nombre: '', precio: '', stock: '', codigo_barras: '' });
+        cargarProductos();
       }
+    } catch (e) { alert("Error al guardar"); }
+  };
+
+  const registrarFactura = async () => {
+    if (!factura.productoId || !factura.cantidad || !factura.precioUnitario) {
+      return alert("Faltan datos obligatorios (Producto, Cantidad, Costo)");
+    }
+    
+    // Asegurar que los valores numéricos no sean undefined
+    const datosFactura = {
+        ...factura,
+        iva: parseInt(factura.iva) || 0,
+        icui: parseFloat(factura.icui) || 0,
+        ibua: parseFloat(factura.ibua) || 0,
+        cantidad: parseInt(factura.cantidad),
+        precioUnitario: parseFloat(factura.precioUnitario)
     };
-  }, [escaneando, productosDB]);
 
-  // --- 3. ACCIONES DEL CARRITO ---
-  const agregarAlCarrito = producto => {
-    if (producto.stock <= 0) return alert("¡Producto agotado!");
-    const existe = carrito.find(item => item.id === producto.id);
+    try {
+      const res = await fetch(`${API_URL}/compras`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(datosFactura)
+      });
+      if (res.ok) {
+        alert("✅ Inventario cargado correctamente");
+        setMostrarFactura(false);
+        setFactura({ productoId: '', cantidad: '', precioUnitario: '', iva: 0, icui: 0, ibua: 0, numeroFactura: '', fechaVencimiento: '', proveedor: '' });
+        cargarProductos();
+      }
+    } catch (e) { alert("Error en factura"); }
+  };
+
+  const agregarAlCarrito = (p) => {
+    if (p.stock <= 0) return alert("Sin stock");
+    const existe = carrito.find(item => item.id === p.id);
     if (existe) {
-      setCarrito(carrito.map((item) =>
-      item.id === producto.id ? { ...item, cantidad: item.cantidad + 1 } : item));
-
+      setCarrito(carrito.map(item => item.id === p.id ? { ...item, cantidad: item.cantidad + 1 } : item));
     } else {
-      setCarrito([...carrito, { ...producto, cantidad: 1 }]);
+      setCarrito([...carrito, { ...p, cantidad: 1 }]);
     }
   };
 
   const finalizarVenta = async () => {
-    if (carrito.length === 0) return alert("El carrito está vacío");
+    if (carrito.length === 0) return;
     setCargando(true);
-
+    
+    // Limpiamos los datos para que el servidor no reciba undefined
     const datosVenta = {
-      metodo_pago: 'Efectivo',
-      productos: carrito.map(i => ({
-        id: i.id,
-        cantidad: i.cantidad,
-        precio_unitario: i.precio })) };
-
-
+        total: parseFloat(total),
+        metodo_pago: 'Efectivo',
+        carrito: carrito.map(item => ({
+            id: item.id,
+            cantidad: item.cantidad,
+            precio: parseFloat(item.precio)
+        }))
+    };
 
     try {
       const res = await fetch(`${API_URL}/ventas`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(datosVenta) });
-
+        body: JSON.stringify(datosVenta)
+      });
       if (res.ok) {
-        alert("✅ Venta realizada con éxito");
+        alert("💰 Venta exitosa");
         setCarrito([]);
-        cargarProductos(); // Actualiza el stock
+        cargarProductos();
       } else {
-        const error = await res.json();
-        alert("❌ Error: " + error.error);
+        const errorData = await res.json();
+        alert("❌ Error: " + errorData.detalle);
       }
-    } catch (err) {
-      alert("❌ Error de comunicación con el servidor");
-    } finally {
-      setCargando(false);
-    }
+    } catch (e) { alert("Error en conexión con el servidor"); }
+    finally { setCargando(false); }
   };
 
-  const total = carrito.reduce((acc, item) => acc + item.precio * item.cantidad, 0);
+  const total = carrito.reduce((acc, item) => acc + (item.precio * item.cantidad), 0);
+  const productosFiltrados = productosDB.filter(p => 
+    p.nombre.toLowerCase().includes(busqueda.toLowerCase()) || 
+    (p.codigo_barras && p.codigo_barras.includes(busqueda))
+  );
 
-  // --- INTERFAZ ---
-  return /*#__PURE__*/(
-    React.createElement("div", { className: "pos-container" }, /*#__PURE__*/
-    React.createElement("div", { className: "main-panel" }, /*#__PURE__*/
-    React.createElement("header", { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' } }, /*#__PURE__*/
-    React.createElement("h1", null, "\uD83C\uDFEA Tienda jp"), /*#__PURE__*/
-    React.createElement("div", { style: { display: 'flex', alignItems: 'center', gap: '10px' } }, /*#__PURE__*/
+  // --- 3. RENDERIZADO ---
+  return React.createElement("div", { className: "pos-container" },
+    React.createElement("div", { className: "main-panel" },
+      React.createElement("header", { className: "pos-header" },
+        React.createElement("h1", null, "🏪 Tienda JP"),
+        React.createElement("div", { className: "header-actions" },
+          React.createElement("div", { className: `status-badge ${statusDB}` }, statusDB.toUpperCase()),
+          isAdmin 
+            ? React.createElement("button", { className: "btn-admin-access active", onClick: cerrarSesionAdmin }, "🔓 Salir Admin")
+            : React.createElement("button", { className: "btn-admin-access", onClick: () => setMostrarLogin(true) }, "🔒 Admin")
+        )
+      ),
+      
+      React.createElement("div", { className: "search-bar-container" },
+        React.createElement("input", {
+          className: "search-input",
+          placeholder: "🔍 Buscar producto...",
+          value: busqueda,
+          onChange: e => setBusqueda(e.target.value)
+        }),
+        React.createElement("button", { 
+          className: `btn-icon ${escaneando ? 'active' : ''}`, 
+          onClick: () => setEscaneando(!escaneando) 
+        }, escaneando ? "Cerrar" : "📷")
+      ),
 
-    React.createElement("div", { style: { display: 'flex', alignItems: 'center', gap: '5px', background: '#eee', padding: '5px 10px', borderRadius: '15px' } }, /*#__PURE__*/
-    React.createElement("div", { style: {
-        width: '10px', height: '10px', borderRadius: '50%',
-        backgroundColor: statusDB === 'online' ? '#28a745' : statusDB === 'conectando' ? '#ffc107' : '#dc3545' } }), /*#__PURE__*/
+      isAdmin && React.createElement("div", { className: "management-buttons fadeIn" },
+        React.createElement("button", { className: "btn-manage btn-green", onClick: () => setMostrarInventario(true) }, "➕ Producto"),
+        React.createElement("button", { className: "btn-manage btn-orange", onClick: () => setMostrarFactura(true) }, "📑 Factura"),
+        React.createElement("button", { className: "btn-manage btn-blue", onClick: () => setMostrarReporte(true) }, "📊 Reporte")
+      ),
 
-    React.createElement("span", { style: { fontSize: '0.7rem', fontWeight: 'bold' } },
-    statusDB.toUpperCase())))), /*#__PURE__*/
+      escaneando && React.createElement("div", { id: "reader", className: "scanner-box" }),
+      
+      React.createElement("div", { className: "product-grid" },
+        productosFiltrados.map(p => 
+          React.createElement("div", { key: p.id, className: "product-card", onClick: () => agregarAlCarrito(p) },
+            React.createElement("h3", null, p.nombre),
+            React.createElement("p", { className: "price" }, `$${parseFloat(p.precio).toLocaleString()}`),
+            React.createElement("p", { className: `stock ${p.stock < 5 ? 'low' : ''}` }, `Stock: ${p.stock}`)
+          )
+        )
+      )
+    ),
 
+    React.createElement("div", { className: "sidebar" },
+      React.createElement("h2", null, "🛒 Carrito"),
+      React.createElement("div", { className: "cart-list" },
+        carrito.map(item =>
+          React.createElement("div", { key: item.id, className: "cart-item" },
+            React.createElement("div", { className: "item-details" }, 
+              React.createElement("span", { className: "qty" }, `${item.cantidad}x`),
+              React.createElement("span", null, item.nombre)
+            ),
+            React.createElement("span", null, `$${(item.precio * item.cantidad).toLocaleString()}`)
+          )
+        )
+      ),
+      React.createElement("div", { className: "total-section" },
+        React.createElement("div", { className: "total-display" },
+          React.createElement("h3", null, "Total:"),
+          React.createElement("h3", null, `$${total.toLocaleString()}`)
+        ),
+        React.createElement("button", { className: "btn-pay", onClick: finalizarVenta, disabled: cargando || carrito.length === 0 }, "FINALIZAR VENTA")
+      )
+    ),
 
+    mostrarLogin && React.createElement("div", { className: "modal-overlay" },
+      React.createElement("div", { className: "modal-content login-box" },
+        React.createElement("h2", null, "Acceso Admin"),
+        React.createElement("input", { type: "password", className: "input-form", placeholder: "Clave", value: pin, onChange: e => setPin(e.target.value), onKeyPress: e => e.key === 'Enter' && manejarLogin() }),
+        React.createElement("button", { className: "btn-pay", onClick: manejarLogin }, "INGRESAR"),
+        React.createElement("button", { className: "btn-close", onClick: () => setMostrarLogin(false) }, "Cancelar")
+      )
+    ),
 
+    mostrarInventario && React.createElement("div", { className: "modal-overlay" },
+      React.createElement("div", { className: "modal-content" },
+        React.createElement("h2", null, "Nuevo Producto"),
+        React.createElement("input", { className: "input-form", placeholder: "Nombre", value: nuevoP.nombre, onChange: e => setNuevoP({...nuevoP, nombre: e.target.value}) }),
+        React.createElement("input", { className: "input-form", placeholder: "Precio Venta", type: "number", value: nuevoP.precio, onChange: e => setNuevoP({...nuevoP, precio: e.target.value}) }),
+        React.createElement("input", { className: "input-form", placeholder: "Stock inicial", type: "number", value: nuevoP.stock, onChange: e => setNuevoP({...nuevoP, stock: e.target.value}) }),
+        React.createElement("button", { className: "btn-pay", onClick: guardarProducto }, "GUARDAR"),
+        React.createElement("button", { className: "btn-close", onClick: () => setMostrarInventario(false) }, "Cancelar")
+      )
+    ),
 
-
-
-    React.createElement("div", { style: { display: 'flex', gap: '10px', marginBottom: '20px' } }, /*#__PURE__*/
-    React.createElement("input", {
-      type: "text",
-      placeholder: "Buscar por nombre...",
-      value: busqueda,
-      onChange: e => setBusqueda(e.target.value),
-      style: { flex: 1, padding: '12px', borderRadius: '8px', border: '1px solid #ddd' } }), /*#__PURE__*/
-
-    React.createElement("button", {
-      onClick: () => setEscaneando(!escaneando),
-      style: { padding: '0 20px', borderRadius: '8px', background: escaneando ? '#ff4d4d' : '#007bff', color: 'white', border: 'none', cursor: 'pointer' } },
-
-    escaneando ? 'Cerrar Cámara' : '📷 Escanear')),
-
-
-
-
-    escaneando && /*#__PURE__*/
-    React.createElement("div", { style: { marginBottom: '20px', borderRadius: '10px', overflow: 'hidden', border: '3px solid #007bff' } }, /*#__PURE__*/
-    React.createElement("div", { id: "reader", style: { width: '100%' } })), /*#__PURE__*/
-
-
-
-
-    React.createElement("div", { className: "product-grid" },
-    productosDB.
-    filter(p => p.nombre.toLowerCase().includes(busqueda.toLowerCase())).
-    map((p) => /*#__PURE__*/
-    React.createElement("div", { key: p.id, className: "product-card", onClick: () => agregarAlCarrito(p) }, /*#__PURE__*/
-    React.createElement("h3", null, p.nombre), /*#__PURE__*/
-    React.createElement("p", { className: "price" }, "$", p.precio.toLocaleString()), /*#__PURE__*/
-    React.createElement("p", { className: "stock" }, "Disp: ", p.stock))))), /*#__PURE__*/
-
-
-
-
-
-
-
-    React.createElement("div", { className: "sidebar" }, /*#__PURE__*/
-    React.createElement("h2", null, "\uD83D\uDED2 Cuenta"), /*#__PURE__*/
-    React.createElement("div", { className: "cart-list", style: { flex: 1, overflowY: 'auto', minHeight: '200px' } },
-    carrito.map((item) => /*#__PURE__*/
-    React.createElement("div", { key: item.id, className: "cart-item" }, /*#__PURE__*/
-    React.createElement("span", null, item.cantidad, "x ", item.nombre), /*#__PURE__*/
-    React.createElement("span", null, "$", (item.precio * item.cantidad).toLocaleString())))), /*#__PURE__*/
-
-
-
-    React.createElement("div", { className: "total-section" }, /*#__PURE__*/
-    React.createElement("hr", null), /*#__PURE__*/
-    React.createElement("h3", null, "Total: $", total.toLocaleString()), /*#__PURE__*/
-    React.createElement("button", { className: "btn-pay", onClick: finalizarVenta, disabled: cargando },
-    cargando ? 'PROCESANDO...' : 'FINALIZAR VENTA'), /*#__PURE__*/
-
-    React.createElement("button", { className: "btn-report", onClick: () => setMostrarReporte(true) }, "CIERRE DE CAJA"))),
-
-
-
-
-    mostrarReporte && /*#__PURE__*/
-    React.createElement("div", { className: "modal" }, /*#__PURE__*/
-    React.createElement("div", { className: "modal-content" }, /*#__PURE__*/
-    React.createElement("h2", null, "Resumen de Caja"), /*#__PURE__*/
-    React.createElement("p", { style: { fontSize: '1.5rem', margin: '20px 0' } }, "Total: ", /*#__PURE__*/React.createElement("strong", null, "$", total.toLocaleString())), /*#__PURE__*/
-    React.createElement("button", { onClick: () => setMostrarReporte(false), className: "btn-pay" }, "Cerrar")))));
-
-
-
-
-
+    mostrarFactura && React.createElement("div", { className: "modal-overlay" },
+      React.createElement("div", { className: "modal-content factura-modal" },
+        React.createElement("h2", null, "📑 Recepción de Mercancía"),
+        React.createElement("div", { className: "input-group-row" },
+          React.createElement("input", { className: "input-form", placeholder: "N° Factura", onChange: e => setFactura({...factura, numeroFactura: e.target.value}) }),
+          React.createElement("input", { className: "input-form", placeholder: "Proveedor", onChange: e => setFactura({...factura, proveedor: e.target.value}) })
+        ),
+        React.createElement("select", { className: "input-form", value: factura.productoId, onChange: e => setFactura({...factura, productoId: e.target.value}) },
+          React.createElement("option", { value: "" }, "Seleccione producto..."),
+          productosDB.map(p => React.createElement("option", { key: p.id, value: p.id }, p.nombre))
+        ),
+        React.createElement("div", { className: "input-group-row" },
+          React.createElement("input", { className: "input-form", type: "number", placeholder: "Cant.", onChange: e => setFactura({...factura, cantidad: e.target.value}) }),
+          React.createElement("input", { className: "input-form", type: "number", placeholder: "Costo Unit.", onChange: e => setFactura({...factura, precioUnitario: e.target.value}) }),
+          React.createElement("div", { style: {flex: 1} },
+            React.createElement("label", { style: {fontSize: '0.6rem', fontWeight: 'bold'} }, "VENCE"),
+            React.createElement("input", { className: "input-form", type: "date", onChange: e => setFactura({...factura, fechaVencimiento: e.target.value}) })
+          )
+        ),
+        React.createElement("div", { className: "tax-grid" },
+          React.createElement("div", null, 
+            React.createElement("label", null, "IVA %"),
+            React.createElement("input", { className: "input-form", type: "number", placeholder: "0", value: factura.iva, onChange: e => setFactura({...factura, iva: e.target.value}) })
+          ),
+          React.createElement("div", null, 
+            React.createElement("label", null, "ICUI ($)"),
+            React.createElement("input", { className: "input-form", type: "number", placeholder: "0", value: factura.icui, onChange: e => setFactura({...factura, icui: e.target.value}) })
+          ),
+          React.createElement("div", null, 
+            React.createElement("label", null, "IBUA ($)"),
+            React.createElement("input", { className: "input-form", type: "number", placeholder: "0", value: factura.ibua, onChange: e => setFactura({...factura, ibua: e.target.value}) })
+          )
+        ),
+        React.createElement("button", { className: "btn-pay", style: {background: '#f39c12'}, onClick: registrarFactura }, "CARGAR INVENTARIO"),
+        React.createElement("button", { className: "btn-close", onClick: () => setMostrarFactura(false) }, "Cancelar")
+      )
+    )
+  );
 };
 
-ReactDOM.render( /*#__PURE__*/React.createElement(POSApp, null), document.getElementById('root'));
+ReactDOM.render(React.createElement(POSApp, null), document.getElementById('root'));
