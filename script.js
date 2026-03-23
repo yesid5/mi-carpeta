@@ -88,6 +88,23 @@ const POSApp = () => {
     }
   };
 
+  const guardarProducto = async () => {
+    if (!nuevoP.nombre || !nuevoP.precio) return alert("Completa los datos");
+    try {
+      const res = await fetch(`${API_URL}/productos`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(nuevoP)
+      });
+      if (res.ok) {
+        alert("✅ Producto Creado");
+        setMostrarInventario(false);
+        setNuevoP({ nombre: '', precio: '', stock: '', codigo_barras: '' });
+        cargarProductos();
+      }
+    } catch (e) { alert("Error al guardar"); }
+  };
+
   const registrarFactura = async () => {
     if (!factura.productoId || !factura.cantidad || !factura.precioUnitario) return alert("Faltan datos");
     const datos = {
@@ -155,13 +172,11 @@ const POSApp = () => {
       )
     ),
 
-    // BOTÓN FLOTANTE MÓVIL
     React.createElement("button", { 
       className: "btn-carrito-flotante", 
       onClick: () => setCarritoAbierto(true) 
     }, `🛒 ${carrito.length}`),
 
-    // SIDEBAR (CARRITO)
     React.createElement("div", { className: `sidebar ${carritoAbierto ? 'open' : ''}` },
       React.createElement("div", { className: "sidebar-header" },
         React.createElement("h2", null, "🛒 Mi Carrito"),
@@ -187,16 +202,60 @@ const POSApp = () => {
       )
     ),
 
+    // --- MODALES ---
+
     // MODAL LOGIN
     mostrarLogin && React.createElement("div", { className: "modal-overlay" },
       React.createElement("div", { className: "modal-content login-box" },
         React.createElement("h2", null, "Acceso Admin"),
-        React.createElement("input", { type: "password", className: "input-form", placeholder: "Clave", value: pin, onChange: e => setPin(e.target.value) }),
+        React.createElement("input", { 
+            type: "password", 
+            className: "input-form", 
+            placeholder: "Clave", 
+            value: pin, 
+            onChange: e => setPin(e.target.value),
+            onKeyPress: e => e.key === 'Enter' && manejarLogin() 
+        }),
         React.createElement("button", { className: "btn-pay", onClick: manejarLogin }, "INGRESAR"),
         React.createElement("button", { className: "btn-close", onClick: () => setMostrarLogin(false) }, "Cancelar")
       )
+    ),
+
+    // MODAL NUEVO PRODUCTO
+    mostrarInventario && React.createElement("div", { className: "modal-overlay" },
+      React.createElement("div", { className: "modal-content" },
+        React.createElement("h2", null, "📦 Nuevo Producto"),
+        React.createElement("input", { className: "input-form", placeholder: "Nombre", value: nuevoP.nombre, onChange: e => setNuevoP({...nuevoP, nombre: e.target.value}) }),
+        React.createElement("input", { className: "input-form", placeholder: "Precio Venta", type: "number", value: nuevoP.precio, onChange: e => setNuevoP({...nuevoP, precio: e.target.value}) }),
+        React.createElement("input", { className: "input-form", placeholder: "Stock Inicial", type: "number", value: nuevoP.stock, onChange: e => setNuevoP({...nuevoP, stock: e.target.value}) }),
+        React.createElement("button", { className: "btn-pay", onClick: guardarProducto }, "GUARDAR"),
+        React.createElement("button", { className: "btn-close", onClick: () => setMostrarInventario(false) }, "Cancelar")
+      )
+    ),
+
+    // MODAL FACTURA (INVENTARIO)
+    mostrarFactura && React.createElement("div", { className: "modal-overlay" },
+      React.createElement("div", { className: "modal-content" },
+        React.createElement("h2", null, "📑 Cargar Inventario"),
+        React.createElement("select", { className: "input-form", value: factura.productoId, onChange: e => setFactura({...factura, productoId: e.target.value}) },
+          React.createElement("option", { value: "" }, "Seleccione producto..."),
+          productosDB.map(p => React.createElement("option", { key: p.id, value: p.id }, p.nombre))
+        ),
+        React.createElement("input", { className: "input-form", type: "number", placeholder: "Cantidad", onChange: e => setFactura({...factura, cantidad: e.target.value}) }),
+        React.createElement("input", { className: "input-form", type: "number", placeholder: "Costo Unitario", onChange: e => setFactura({...factura, precioUnitario: e.target.value}) }),
+        React.createElement("button", { className: "btn-pay", style: {background: 'var(--orange)'}, onClick: registrarFactura }, "ACTUALIZAR STOCK"),
+        React.createElement("button", { className: "btn-close", onClick: () => setMostrarFactura(false) }, "Cerrar")
+      )
+    ),
+
+    // MODAL REPORTE
+    mostrarReporte && React.createElement("div", { className: "modal-overlay" },
+      React.createElement("div", { className: "modal-content" },
+        React.createElement("h2", null, "📊 Reporte de Ventas"),
+        React.createElement("p", null, "Funcionalidad de reporte próximamente..."),
+        React.createElement("button", { className: "btn-close", onClick: () => setMostrarReporte(false) }, "Cerrar")
+      )
     )
-    // ... (puedes añadir aquí los otros modales de inventario y factura siguiendo el mismo patrón si los necesitas)
   );
 };
 
