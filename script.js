@@ -12,23 +12,17 @@ const POSApp = () => {
   const [mostrarLogin, setMostrarLogin] = useState(false);
   const [pin, setPin] = useState('');
   
-  const [mostrarReporte, setMostrarReporte] = useState(false);
   const [mostrarInventario, setMostrarInventario] = useState(false);
   const [mostrarFactura, setMostrarFactura] = useState(false);
   const [escaneando, setEscaneando] = useState(false);
 
+  // NUEVO: Estado para el carrito en móvil
+  const [carritoAbierto, setCarritoAbierto] = useState(false);
+
   const [nuevoP, setNuevoP] = useState({ nombre: '', precio: '', stock: '', codigo_barras: '' });
-  
   const [factura, setFactura] = useState({ 
-    productoId: '', 
-    cantidad: '', 
-    precioUnitario: '', 
-    iva: 0, 
-    icui: 0, 
-    ibua: 0,
-    numeroFactura: '',
-    fechaVencimiento: '',
-    proveedor: ''
+    productoId: '', cantidad: '', precioUnitario: '', iva: 0, icui: 0, ibua: 0,
+    numeroFactura: '', fechaVencimiento: '', proveedor: ''
   });
 
   const API_URL = "https://mi-carpeta.onrender.com"; 
@@ -60,8 +54,6 @@ const POSApp = () => {
     }
   };
 
-  const cerrarSesionAdmin = () => setIsAdmin(false);
-
   const guardarProducto = async () => {
     if (!nuevoP.nombre || !nuevoP.precio) return alert("Completa los datos");
     try {
@@ -81,40 +73,30 @@ const POSApp = () => {
 
   const registrarFactura = async () => {
     if (!factura.productoId || !factura.cantidad || !factura.precioUnitario) {
-      return alert("Faltan datos obligatorios (Producto, Cantidad, Costo)");
+      return alert("Faltan datos obligatorios");
     }
-
-    const datosParaEnviar = {
+    const datos = {
+      ...factura,
       productoId: parseInt(factura.productoId),
       cantidad: parseInt(factura.cantidad),
       precioUnitario: parseFloat(factura.precioUnitario),
       iva: parseInt(factura.iva) || 0,
       icui: parseFloat(factura.icui) || 0,
-      ibua: parseFloat(factura.ibua) || 0,
-      numeroFactura: factura.numeroFactura || "S/N",
-      proveedor: factura.proveedor || "Genérico",
-      fechaVencimiento: factura.fechaVencimiento || null
+      ibua: parseFloat(factura.ibua) || 0
     };
-
     try {
       const res = await fetch(`${API_URL}/compras`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(datosParaEnviar)
+        body: JSON.stringify(datos)
       });
-
       if (res.ok) {
-        alert("✅ Inventario cargado correctamente");
+        alert("✅ Inventario cargado");
         setMostrarFactura(false);
         setFactura({ productoId: '', cantidad: '', precioUnitario: '', iva: 0, icui: 0, ibua: 0, numeroFactura: '', fechaVencimiento: '', proveedor: '' });
         cargarProductos();
-      } else {
-        const errorServidor = await res.json();
-        alert("❌ Error del servidor: " + (errorServidor.detalle || "Error desconocido"));
       }
-    } catch (e) { 
-      alert("❌ Error de conexión con el servidor."); 
-    }
+    } catch (e) { alert("Error de conexión"); }
   };
 
   const agregarAlCarrito = (p) => {
@@ -130,17 +112,11 @@ const POSApp = () => {
   const finalizarVenta = async () => {
     if (carrito.length === 0) return;
     setCargando(true);
-    
     const datosVenta = {
         total: parseFloat(total),
         metodo_pago: 'Efectivo',
-        carrito: carrito.map(item => ({
-            id: item.id,
-            cantidad: item.cantidad,
-            precio: parseFloat(item.precio)
-        }))
+        carrito: carrito.map(item => ({ id: item.id, cantidad: item.cantidad, precio: parseFloat(item.precio) }))
     };
-
     try {
       const res = await fetch(`${API_URL}/ventas`, {
         method: 'POST',
@@ -150,12 +126,10 @@ const POSApp = () => {
       if (res.ok) {
         alert("💰 Venta exitosa");
         setCarrito([]);
+        setCarritoAbierto(false); // Cerrar al terminar
         cargarProductos();
-      } else {
-        const errorData = await res.json();
-        alert("❌ Error: " + errorData.detalle);
       }
-    } catch (e) { alert("Error en conexión con el servidor"); }
+    } catch (e) { alert("Error en conexión"); }
     finally { setCargando(false); }
   };
 
@@ -173,7 +147,7 @@ const POSApp = () => {
         React.createElement("div", { className: "header-actions" },
           React.createElement("div", { className: `status-badge ${statusDB}` }, statusDB.toUpperCase()),
           isAdmin 
-            ? React.createElement("button", { className: "btn-admin-access active", onClick: cerrarSesionAdmin }, "🔓 Salir Admin")
+            ? React.createElement("button", { className: "btn-admin-access active", onClick: () => setIsAdmin(false) }, "🔓 Salir")
             : React.createElement("button", { className: "btn-admin-access", onClick: () => setMostrarLogin(true) }, "🔒 Admin")
         )
       ),
@@ -181,23 +155,16 @@ const POSApp = () => {
       React.createElement("div", { className: "search-bar-container" },
         React.createElement("input", {
           className: "search-input",
-          placeholder: "🔍 Buscar producto...",
+          placeholder: "🔍 Buscar...",
           value: busqueda,
           onChange: e => setBusqueda(e.target.value)
-        }),
-        React.createElement("button", { 
-          className: `btn-icon ${escaneando ? 'active' : ''}`, 
-          onClick: () => setEscaneando(!escaneando) 
-        }, escaneando ? "Cerrar" : "📷")
+        })
       ),
 
-      isAdmin && React.createElement("div", { className: "management-buttons fadeIn" },
+      isAdmin && React.createElement("div", { className: "management-buttons" },
         React.createElement("button", { className: "btn-manage btn-green", onClick: () => setMostrarInventario(true) }, "➕ Producto"),
-        React.createElement("button", { className: "btn-manage btn-orange", onClick: () => setMostrarFactura(true) }, "📑 Factura"),
-        React.createElement("button", { className: "btn-manage btn-blue", onClick: () => setMostrarReporte(true) }, "📊 Reporte")
+        React.createElement("button", { className: "btn-manage btn-orange", onClick: () => setMostrarFactura(true) }, "📑 Factura")
       ),
-
-      escaneando && React.createElement("div", { id: "reader", className: "scanner-box" }),
       
       React.createElement("div", { className: "product-grid" },
         productosFiltrados.map(p => 
@@ -210,85 +177,68 @@ const POSApp = () => {
       )
     ),
 
-    React.createElement("div", { className: "sidebar" },
-      React.createElement("h2", null, "🛒 Carrito"),
+    // BOTÓN FLOTANTE MÓVIL
+    React.createElement("button", { 
+      className: "btn-carrito-flotante", 
+      onClick: () => setCarritoAbierto(true) 
+    }, `🛒 ${carrito.length}`),
+
+    // SIDEBAR (CARRITO)
+    React.createElement("div", { className: `sidebar ${carritoAbierto ? 'open' : ''}` },
+      React.createElement("div", { className: "sidebar-header" },
+        React.createElement("h2", null, "🛒 Mi Carrito"),
+        React.createElement("button", { className: "btn-close-cart", onClick: () => setCarritoAbierto(false) }, "✕")
+      ),
       React.createElement("div", { className: "cart-list" },
         carrito.map(item =>
           React.createElement("div", { key: item.id, className: "cart-item" },
-            React.createElement("div", { className: "item-details" }, 
-              React.createElement("span", { className: "qty" }, `${item.cantidad}x`),
-              React.createElement("span", null, item.nombre)
-            ),
+            React.createElement("span", null, `${item.cantidad}x ${item.nombre}`),
             React.createElement("span", null, `$${(item.precio * item.cantidad).toLocaleString()}`)
           )
         )
       ),
       React.createElement("div", { className: "total-section" },
-        React.createElement("div", { className: "total-display" },
-          React.createElement("h3", null, "Total:"),
-          React.createElement("h3", null, `$${total.toLocaleString()}`)
-        ),
+        React.createElement("h3", null, `Total: $${total.toLocaleString()}`),
         React.createElement("button", { className: "btn-pay", onClick: finalizarVenta, disabled: cargando || carrito.length === 0 }, "FINALIZAR VENTA")
       )
     ),
 
+    // MODAL LOGIN
     mostrarLogin && React.createElement("div", { className: "modal-overlay" },
       React.createElement("div", { className: "modal-content login-box" },
         React.createElement("h2", null, "Acceso Admin"),
-        React.createElement("input", { type: "password", className: "input-form", placeholder: "Clave", value: pin, onChange: e => setPin(e.target.value), onKeyPress: e => e.key === 'Enter' && manejarLogin() }),
+        React.createElement("input", { type: "password", className: "input-form", placeholder: "Clave", value: pin, onChange: e => setPin(e.target.value) }),
         React.createElement("button", { className: "btn-pay", onClick: manejarLogin }, "INGRESAR"),
         React.createElement("button", { className: "btn-close", onClick: () => setMostrarLogin(false) }, "Cancelar")
       )
     ),
 
+    // MODAL NUEVO PRODUCTO
     mostrarInventario && React.createElement("div", { className: "modal-overlay" },
       React.createElement("div", { className: "modal-content" },
         React.createElement("h2", null, "Nuevo Producto"),
         React.createElement("input", { className: "input-form", placeholder: "Nombre", value: nuevoP.nombre, onChange: e => setNuevoP({...nuevoP, nombre: e.target.value}) }),
-        React.createElement("input", { className: "input-form", placeholder: "Precio Venta", type: "number", value: nuevoP.precio, onChange: e => setNuevoP({...nuevoP, precio: e.target.value}) }),
-        React.createElement("input", { className: "input-form", placeholder: "Stock inicial", type: "number", value: nuevoP.stock, onChange: e => setNuevoP({...nuevoP, stock: e.target.value}) }),
+        React.createElement("input", { className: "input-form", placeholder: "Precio", type: "number", value: nuevoP.precio, onChange: e => setNuevoP({...nuevoP, precio: e.target.value}) }),
         React.createElement("button", { className: "btn-pay", onClick: guardarProducto }, "GUARDAR"),
-        React.createElement("button", { className: "btn-close", onClick: () => setMostrarInventario(false) }, "Cancelar")
+        React.createElement("button", { className: "btn-close", onClick: () => setMostrarInventario(false) }, "Cerrar")
       )
     ),
 
+    // MODAL FACTURA
     mostrarFactura && React.createElement("div", { className: "modal-overlay" },
-      React.createElement("div", { className: "modal-content factura-modal" },
-        React.createElement("h2", null, "📑 Recepción de Mercancía"),
-        React.createElement("div", { className: "input-group-row" },
-          React.createElement("input", { className: "input-form", placeholder: "N° Factura", onChange: e => setFactura({...factura, numeroFactura: e.target.value}) }),
-          React.createElement("input", { className: "input-form", placeholder: "Proveedor", onChange: e => setFactura({...factura, proveedor: e.target.value}) })
-        ),
-        React.createElement("select", { className: "input-form", value: factura.productoId, onChange: e => setFactura({...factura, productoId: e.target.value}) },
-          React.createElement("option", { value: "" }, "Seleccione producto..."),
+      React.createElement("div", { className: "modal-content" },
+        React.createElement("h2", null, "Cargar Inventario"),
+        React.createElement("select", { className: "input-form", onChange: e => setFactura({...factura, productoId: e.target.value}) },
+          React.createElement("option", { value: "" }, "Seleccionar..."),
           productosDB.map(p => React.createElement("option", { key: p.id, value: p.id }, p.nombre))
         ),
-        React.createElement("div", { className: "input-group-row" },
-          React.createElement("input", { className: "input-form", type: "number", placeholder: "Cant.", onChange: e => setFactura({...factura, cantidad: e.target.value}) }),
-          React.createElement("input", { className: "input-form", type: "number", placeholder: "Costo Unit.", onChange: e => setFactura({...factura, precioUnitario: e.target.value}) }),
-          React.createElement("div", { style: {flex: 1} },
-            React.createElement("label", { style: {fontSize: '0.6rem', fontWeight: 'bold'} }, "VENCE"),
-            React.createElement("input", { className: "input-form", type: "date", onChange: e => setFactura({...factura, fechaVencimiento: e.target.value}) })
-          )
-        ),
-        React.createElement("div", { className: "tax-grid" },
-          React.createElement("div", null, 
-            React.createElement("label", null, "IVA %"),
-            React.createElement("input", { className: "input-form", type: "number", placeholder: "0", value: factura.iva, onChange: e => setFactura({...factura, iva: e.target.value}) })
-          ),
-          React.createElement("div", null, 
-            React.createElement("label", null, "ICUI ($)"),
-            React.createElement("input", { className: "input-form", type: "number", placeholder: "0", value: factura.icui, onChange: e => setFactura({...factura, icui: e.target.value}) })
-          ),
-          React.createElement("div", null, 
-            React.createElement("label", null, "IBUA ($)"),
-            React.createElement("input", { className: "input-form", type: "number", placeholder: "0", value: factura.ibua, onChange: e => setFactura({...factura, ibua: e.target.value}) })
-          )
-        ),
-        React.createElement("button", { className: "btn-pay", style: {background: '#f39c12'}, onClick: registrarFactura }, "CARGAR INVENTARIO"),
-        React.createElement("button", { className: "btn-close", onClick: () => setMostrarFactura(false) }, "Cancelar")
+        React.createElement("input", { className: "input-form", type: "number", placeholder: "Cantidad", onChange: e => setFactura({...factura, cantidad: e.target.value}) }),
+        React.createElement("input", { className: "input-form", type: "number", placeholder: "Costo", onChange: e => setFactura({...factura, precioUnitario: e.target.value}) }),
+        React.createElement("button", { className: "btn-pay", onClick: registrarFactura }, "CARGAR"),
+        React.createElement("button", { className: "btn-close", onClick: () => setMostrarFactura(false) }, "Cerrar")
       )
     )
   );
 };
+
 ReactDOM.render(React.createElement(POSApp, null), document.getElementById('root'));
