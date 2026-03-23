@@ -19,19 +19,12 @@ const POSApp = () => {
 
   const [nuevoP, setNuevoP] = useState({ nombre: '', precio: '', stock: 0, codigo_barras: '' });
   
-  // Estado mejorado para Factura de Proveedor
   const [factura, setFactura] = useState({ 
-    productoId: '', 
-    cantidad: '', 
-    precioUnitario: '', 
-    iva: 0, 
-    icui: 0, 
-    ibua: 0,
-    numeroFactura: '', 
-    fechaVencimiento: '', 
-    proveedor: '' 
+    productoId: '', cantidad: '', precioUnitario: '', iva: 0, icui: 0, ibua: 0,
+    numeroFactura: '', fechaVencimiento: '', proveedor: '' 
   });
 
+  // ASEGÚRATE DE QUE ESTA URL SEA LA DE TU RENDER
   const API_URL = "https://mi-carpeta.onrender.com"; 
   const CLAVE_ADMIN = "1234"; 
 
@@ -63,11 +56,17 @@ const POSApp = () => {
 
   const finalizarVenta = async () => {
     if (carrito.length === 0) return;
+    if (!confirm("¿Confirmar venta?")) return;
+    
     setCargando(true);
     const datosVenta = {
         total: parseFloat(total),
         metodo_pago: 'Efectivo',
-        carrito: carrito.map(item => ({ id: item.id, cantidad: item.cantidad, precio: parseFloat(item.precio) }))
+        carrito: carrito.map(item => ({ 
+          id: item.id, 
+          cantidad: item.cantidad, 
+          precio: parseFloat(item.precio_venta || item.precio) 
+        }))
     };
     try {
       const res = await fetch(`${API_URL}/ventas`, {
@@ -97,21 +96,36 @@ const POSApp = () => {
     }
   };
 
+  // FUNCIÓN CORREGIDA Y ÚNICA
   const guardarProducto = async () => {
-    if (!nuevoP.nombre || !nuevoP.precio) return alert("Faltan datos");
+    if (!nuevoP.nombre || !nuevoP.precio) return alert("Completa los datos");
+
+    const productoParaEnviar = {
+        nombre: nuevoP.nombre,
+        precio_venta: parseFloat(nuevoP.precio),
+        stock: parseInt(nuevoP.stock) || 0,
+        codigo_barras: nuevoP.codigo_barras || ''
+    };
+
     try {
-      const res = await fetch(`${API_URL}/productos`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(nuevoP)
-      });
-      if (res.ok) {
-        alert("✅ Producto Creado");
-        setMostrarInventario(false);
-        setNuevoP({ nombre: '', precio: '', stock: 0, codigo_barras: '' });
-        cargarProductos();
-      }
-    } catch (e) { alert("Error al guardar"); }
+        const res = await fetch(`${API_URL}/productos`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(productoParaEnviar) 
+        });
+        
+        if (res.ok) {
+            alert("✅ Producto Creado");
+            setMostrarInventario(false);
+            setNuevoP({ nombre: '', precio: '', stock: 0, codigo_barras: '' });
+            cargarProductos();
+        } else {
+            const error = await res.json();
+            alert("❌ Error: " + (error.mensaje || "No se pudo guardar"));
+        }
+    } catch (e) {
+        alert("❌ Error de red al guardar");
+    }
   };
 
   const registrarFactura = async () => {
@@ -136,45 +150,16 @@ const POSApp = () => {
         body: JSON.stringify(datosProcesados)
       });
       if (res.ok) {
-        alert("✅ Inventario cargado y stock actualizado");
+        alert("✅ Inventario cargado correctamente");
         setMostrarFactura(false);
         setFactura({ productoId: '', cantidad: '', precioUnitario: '', iva: 0, icui: 0, ibua: 0, numeroFactura: '', fechaVencimiento: '', proveedor: '' });
         cargarProductos();
       }
-    } catch (e) { alert("Error al registrar entrada de mercancía"); }
+    } catch (e) { alert("Error al registrar entrada"); }
   };
-  const guardarProducto = async () => {
-    if (!nuevoP.nombre || !nuevoP.precio) return alert("Completa los datos");
 
-    // Preparamos el objeto con los nombres que espera la base de datos
-    const productoParaEnviar = {
-        nombre: nuevoP.nombre,
-        precio_venta: parseFloat(nuevoP.precio), // Asegúrate que sea número
-        stock: parseInt(nuevoP.stock) || 0,
-        codigo_barras: nuevoP.codigo_barras || ''
-    };
-
-    try {
-        const res = await fetch(`${API_URL}/productos`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(productoParaEnviar) 
-        });
-        
-        if (res.ok) {
-            alert("✅ Producto Creado");
-            setMostrarInventario(false);
-            cargarProductos();
-        } else {
-            const error = await res.json();
-            alert("❌ Error del servidor: " + error.mensaje);
-        }
-    } catch (e) {
-        alert("❌ Error de red al guardar");
-    }
-};
-
-  const total = carrito.reduce((acc, item) => acc + (item.precio * item.cantidad), 0);
+  // --- CÁLCULOS ---
+  const total = carrito.reduce((acc, item) => acc + ((item.precio_venta || item.precio) * item.cantidad), 0);
   const productosFiltrados = productosDB.filter(p => 
     p.nombre.toLowerCase().includes(busqueda.toLowerCase()) || 
     (p.codigo_barras && p.codigo_barras.includes(busqueda))
@@ -212,7 +197,7 @@ const POSApp = () => {
         productosFiltrados.map(p => 
           React.createElement("div", { key: p.id, className: "product-card", onClick: () => agregarAlCarrito(p) },
             React.createElement("h3", null, p.nombre),
-            React.createElement("p", { className: "price" }, `$${parseFloat(p.precio).toLocaleString()}`),
+            React.createElement("p", { className: "price" }, `$${parseFloat(p.precio_venta || p.precio).toLocaleString()}`),
             React.createElement("p", { className: `stock ${p.stock < 5 ? 'low' : ''}` }, `Stock: ${p.stock}`)
           )
         )
@@ -221,7 +206,6 @@ const POSApp = () => {
 
     React.createElement("button", { className: "btn-carrito-flotante", onClick: () => setCarritoAbierto(true) }, `🛒 ${carrito.length}`),
 
-    // SIDEBAR CARRITO
     React.createElement("div", { className: `sidebar ${carritoAbierto ? 'open' : ''}` },
       React.createElement("div", { className: "sidebar-header" },
         React.createElement("h2", null, "🛒 Carrito"),
@@ -234,7 +218,7 @@ const POSApp = () => {
                 React.createElement("span", { className: "qty" }, `${item.cantidad}x`),
                 React.createElement("span", null, item.nombre)
             ),
-            React.createElement("span", null, `$${(item.precio * item.cantidad).toLocaleString()}`)
+            React.createElement("span", null, `$${((item.precio_venta || item.precio) * item.cantidad).toLocaleString()}`)
           )
         )
       ),
@@ -247,30 +231,26 @@ const POSApp = () => {
       )
     ),
 
-    // --- MODALES ---
-
-    // LOGIN
     mostrarLogin && React.createElement("div", { className: "modal-overlay" },
       React.createElement("div", { className: "modal-content login-box" },
         React.createElement("h2", null, "🔒 Acceso Admin"),
         React.createElement("input", { type: "password", className: "input-form", placeholder: "PIN", value: pin, onChange: e => setPin(e.target.value), onKeyPress: e => e.key === 'Enter' && manejarLogin() }),
-        React.createElement("button", { className: "btn-pay", onClick: manejarLogin }, "INGRESAR")
+        React.createElement("button", { className: "btn-pay", onClick: manejarLogin }, "INGRESAR"),
+        React.createElement("button", { className: "btn-close", onClick: () => setMostrarLogin(false) }, "Cerrar")
       )
     ),
 
-    // NUEVO PRODUCTO
     mostrarInventario && React.createElement("div", { className: "modal-overlay" },
       React.createElement("div", { className: "modal-content" },
         React.createElement("h2", null, "📦 Crear Producto"),
-        React.createElement("input", { className: "input-form", placeholder: "Nombre", onChange: e => setNuevoP({...nuevoP, nombre: e.target.value}) }),
-        React.createElement("input", { className: "input-form", type: "number", placeholder: "Precio Venta", onChange: e => setNuevoP({...nuevoP, precio: e.target.value}) }),
-        React.createElement("input", { className: "input-form", placeholder: "Código Barras (Opcional)", onChange: e => setNuevoP({...nuevoP, codigo_barras: e.target.value}) }),
+        React.createElement("input", { className: "input-form", placeholder: "Nombre", value: nuevoP.nombre, onChange: e => setNuevoP({...nuevoP, nombre: e.target.value}) }),
+        React.createElement("input", { className: "input-form", type: "number", placeholder: "Precio Venta", value: nuevoP.precio, onChange: e => setNuevoP({...nuevoP, precio: e.target.value}) }),
+        React.createElement("input", { className: "input-form", placeholder: "Código Barras (Opcional)", value: nuevoP.codigo_barras, onChange: e => setNuevoP({...nuevoP, codigo_barras: e.target.value}) }),
         React.createElement("button", { className: "btn-pay", onClick: guardarProducto }, "CREAR"),
         React.createElement("button", { className: "btn-close", onClick: () => setMostrarInventario(false) }, "Cerrar")
       )
     ),
 
-    // FACTURA DE PROVEEDOR (COLOMBIA)
     mostrarFactura && React.createElement("div", { className: "modal-overlay" },
       React.createElement("div", { className: "modal-content" },
         React.createElement("h2", null, "📑 Recepción de Factura"),
@@ -288,11 +268,9 @@ const POSApp = () => {
         ),
         React.createElement("div", { className: "tax-grid", style: {display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '5px'} },
             React.createElement("div", null, React.createElement("label", {style: {fontSize: '0.7rem'}}, "IVA %"), React.createElement("input", {className: "input-form", type: "number", placeholder: "19", onChange: e => setFactura({...factura, iva: e.target.value})})),
-            React.createElement("div", null, React.createElement("label", {style: {fontSize: '0.7rem'}}, "ICUI $"), React.createElement("input", {className: "input-form", type: "number", placeholder: "U-Procesados", onChange: e => setFactura({...factura, icui: e.target.value})})),
-            React.createElement("div", null, React.createElement("label", {style: {fontSize: '0.7rem'}}, "IBUA $"), React.createElement("input", {className: "input-form", type: "number", placeholder: "Bebidas", onChange: e => setFactura({...factura, ibua: e.target.value})}))
+            React.createElement("div", null, React.createElement("label", {style: {fontSize: '0.7rem'}}, "ICUI $"), React.createElement("input", {className: "input-form", type: "number", placeholder: "ICUI", onChange: e => setFactura({...factura, icui: e.target.value})})),
+            React.createElement("div", null, React.createElement("label", {style: {fontSize: '0.7rem'}}, "IBUA $"), React.createElement("input", {className: "input-form", type: "number", placeholder: "IBUA", onChange: e => setFactura({...factura, ibua: e.target.value})}))
         ),
-        React.createElement("label", {style: {fontSize: '0.7rem'}}, "VENCIMIENTO"),
-        React.createElement("input", { className: "input-form", type: "date", onChange: e => setFactura({...factura, fechaVencimiento: e.target.value}) }),
         React.createElement("button", { className: "btn-pay", style: {background: 'var(--orange)'}, onClick: registrarFactura }, "CARGAR A INVENTARIO"),
         React.createElement("button", { className: "btn-close", onClick: () => setMostrarFactura(false) }, "Cancelar")
       )
