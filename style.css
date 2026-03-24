@@ -99,6 +99,33 @@ body {
 /* =========================================
    4. BOTONES Y ACCIONES
    ========================================= */
+.prod-img {
+    width: 100%;
+    height: 120px;
+    object-fit: cover; /* Esto hace que la imagen se recorte para llenar el espacio sin estirarse */
+    border-radius: 10px 10px 0 0;
+    background-color: #f0f0f0;
+    display: block;
+    margin-bottom: 10px;
+}
+
+.product-card {
+    cursor: pointer;
+    transition: transform 0.2s;
+    overflow: hidden; /* Importante para que la imagen no se salga de las esquinas redondeadas */
+}
+
+.product-card:active {
+    transform: scale(0.95);
+}
+
+.admin-actions {
+    display: flex;
+    justify-content: space-around;
+    padding: 10px;
+    background: #f9f9f9;
+    border-top: 1px solid #eee;
+}
 .btn-admin-access { 
   background: #eee; 
   border: 1px solid #ccc; 
