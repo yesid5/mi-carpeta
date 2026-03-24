@@ -22,6 +22,7 @@ const pool = mysql.createPool({
   enableKeepAlive: true
 });
 
+// Función auxiliar para consultas
 async function query(sql, params) {
   try {
     const [results] = await pool.execute(sql, params);
@@ -32,6 +33,7 @@ async function query(sql, params) {
   }
 }
 
+// --- 1. INICIALIZACIÓN DE TABLAS ---
 const inicializarDB = async () => {
   try {
     await query(`CREATE TABLE IF NOT EXISTS productos (
@@ -85,8 +87,11 @@ const inicializarDB = async () => {
 };
 inicializarDB();
 
+// --- 2. RUTAS ---
+
 app.get('/', (req, res) => res.send('🏪 Servidor Tienda JP: ONLINE'));
 
+// OBTENER PRODUCTOS
 app.get('/productos', async (req, res) => {
   try {
     const rows = await query('SELECT * FROM productos ORDER BY nombre ASC');
@@ -94,120 +99,7 @@ app.get('/productos', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// server.js - Backend
-// server.js - Versión para MySQL
-app.post('/compras', async (req, res) => {
-    // Extraemos los datos del cuerpo de la petición
-    const { 
-        productoId, numeroFactura, proveedor, cantidad, 
-        precioUnitario, iva, icui, ibua, fechaVencimiento 
-    } = req.body;
-
-    // LIMPIEZA DE DATOS: Si algo viene vacío, le ponemos un valor por defecto o null
-    const p_id = productoId || null;
-    const n_fac = numeroFactura || 'SIN-NUMERO';
-    const prov = proveedor || 'GENERICO';
-    const cant = parseInt(cantidad) || 0;
-    const precio = parseFloat(precioUnitario) || 0;
-    const v_iva = parseInt(iva) || 0;
-    const v_icui = parseFloat(icui) || 0;
-    const v_ibua = parseFloat(ibua) || 0;
-    const f_venc = fechaVencimiento || null; // MySQL acepta null para fechas
-
-    try {
-        // 1. Insertar en historial_compras usando "?"
-        const sqlHistorial = `INSERT INTO historial_compras 
-            (producto_id, numero_factura, proveedor, cantidad, precio_unitario_costo, iva_porcentaje, icui_valor, ibua_valor, fecha_vencimiento) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
-        
-        const paramsHistorial = [p_id, n_fac, prov, cant, precio, v_iva, v_icui, v_ibua, f_venc];
-        await pool.query(sqlHistorial, paramsHistorial);
-
-        // 2. Actualizar el producto maestro
-        const sqlUpdate = `UPDATE productos SET 
-                stock = stock + ?, 
-                precio_costo = ?,
-                ultimo_iva = ?,
-                ultimo_icui = ?,
-                ultimo_ibua = ?
-             WHERE id = ?`;
-
-        const paramsUpdate = [cant, precio, v_iva, v_icui, v_ibua, p_id];
-        await pool.query(sqlUpdate, paramsUpdate);
-
-        res.status(201).json({ mensaje: "✅ Compra y Stock actualizados" });
-
-    } catch (err) {
-        console.error("❌ ERROR EN SQL:", err.sqlMessage || err.message);
-        res.status(500).json({ error: "Error interno en el servidor" });
-    }
-});
-
-        // 2. Actualizar el producto
-        const sqlUpdate = `UPDATE productos SET 
-                stock = stock + ?, 
-                precio_costo = ?,
-                ultimo_iva = ?,
-                ultimo_icui = ?,
-                ultimo_ibua = ?
-             WHERE id = ?`;
-
-        await pool.query(sqlUpdate, [cantidad, precioUnitario, iva, icui, ibua, productoId]);
-
-        res.status(201).json({ mensaje: "Compra registrada con éxito" });
-
-    } catch (err) {
-        console.error("ERROR EN COMPRAS:", err.message);
-        res.status(500).json({ error: err.message });
-    }
-});
-
-        // 2. Actualizar el stock y el precio de costo en la tabla productos
-        await pool.query(
-            `UPDATE productos SET 
-                stock = stock + ?1, 
-                precio_costo = ?2,
-                ultimo_iva = ?3,
-                ultimo_icui = ?4,
-                ultimo_ibua = ?5
-             WHERE id = ?6`,
-            [cantidad, precioUnitario, iva, icui, ibua, productoId]
-        );
-
-        await pool.query('COMMIT');
-        res.status(201).json({ mensaje: "Compra registrada y stock actualizado" });
-
-    } catch (err) {
-        await pool.query('ROLLBACK');
-        console.error("ERROR EN COMPRAS:", err.message);
-        res.status(500).json({ error: err.message });
-    }
-});
-app.post('/ventas', async (req, res) => {
-    const { total, carrito } = req.body;
-    const totalVenta = parseFloat(total) || 0;
-
-    try {
-        // Insertar cabecera de venta
-        const [resVenta] = await pool.query('INSERT INTO ventas (total) VALUES (?)', [totalVenta]);
-        const ventaId = resVenta.insertId;
-
-        // Registrar detalles
-        for (const item of carrito) {
-            await pool.query(
-                'INSERT INTO ventas_detalle (venta_id, producto_id, cantidad, precio_unitario_venta) VALUES (?, ?, ?, ?)',
-                [ventaId, item.id, item.cantidad, item.precio]
-            );
-            // Descontar stock
-            await pool.query('UPDATE productos SET stock = stock - ? WHERE id = ?', [item.cantidad, item.id]);
-        }
-        res.json({ mensaje: "Venta exitosa" });
-    } catch (err) {
-        console.error(err);
-        res.status(500).send("Error en la venta");
-    }
-});
-
+// CREAR PRODUCTO NUEVO
 app.post('/productos', async (req, res) => {
   const { nombre, precio, stock, codigo_barras } = req.body;
   try {
@@ -216,47 +108,68 @@ app.post('/productos', async (req, res) => {
     res.status(201).json({ message: "Producto creado" });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
-// RUTA: POST /compras
+
+// REGISTRAR COMPRA (FACTURA PROVEEDOR)
 app.post('/compras', async (req, res) => {
     const { 
-        productoId, cantidad, precioUnitario, 
-        iva, icui, ibua, numeroFactura, proveedor 
+        productoId, numeroFactura, proveedor, cantidad, 
+        precioUnitario, iva, icui, ibua, fechaVencimiento 
     } = req.body;
 
+    // Limpieza de datos para evitar "undefined"
+    const p_id = parseInt(productoId);
+    const cant = parseInt(cantidad) || 0;
+    const precio = parseFloat(precioUnitario) || 0;
+    const v_iva = parseInt(iva) || 0;
+    const v_icui = parseFloat(icui) || 0;
+    const v_ibua = parseFloat(ibua) || 0;
+
     try {
-        // 1. Calcular el subtotal y los impuestos
-        const subtotal = cantidad * precioUnitario;
-        const valorIVA = subtotal * (iva / 100);
-        // ICUI e IBUA suelen ser valores fijos por unidad en la factura
-        const totalImpuestos = valorIVA + (icui * cantidad) + (ibua * cantidad);
-        const costoTotalFactura = subtotal + totalImpuestos;
+        // 1. Insertar en historial
+        const sqlHistorial = `INSERT INTO historial_compras 
+            (producto_id, numero_factura, proveedor, cantidad, precio_unitario_costo, iva_porcentaje, icui_valor, ibua_valor, fecha_vencimiento) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+        await query(sqlHistorial, [p_id, numeroFactura || 'S/N', proveedor || 'GENERICO', cant, precio, v_iva, v_icui, v_ibua, fechaVencimiento || null]);
 
-        // 2. Insertar el registro de la compra
-        const nuevaCompra = await pool.query(
-            `INSERT INTO compras 
-            (producto_id, cantidad, precio_unitario, iva, icui, ibua, numero_factura, proveedor, total_costo) 
-            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9) RETURNING *`,
-            [productoId, cantidad, precioUnitario, iva, icui, ibua, numeroFactura, proveedor, costoTotalFactura]
-        );
+        // 2. Actualizar stock y últimos costos en tabla productos
+        const sqlUpdate = `UPDATE productos SET 
+                stock = stock + ?, 
+                precio_costo = ?,
+                ultimo_iva = ?,
+                ultimo_icui = ?,
+                ultimo_ibua = ?
+             WHERE id = ?`;
+        await query(sqlUpdate, [cant, precio, v_iva, v_icui, v_ibua, p_id]);
 
-        // 3. ACTUALIZACIÓN AUTOMÁTICA DE STOCK
-        // Sumamos la cantidad ingresada al stock actual del producto
-        await pool.query(
-            'UPDATE productos SET stock = stock + ?1 WHERE id = ?2',
-            [cantidad, productoId]
-        );
-
-        res.status(201).json({
-            mensaje: "Inventario actualizado exitosamente",
-            compra: nuevaCompra.rows[0]
-        });
-
+        res.status(201).json({ mensaje: "✅ Compra y Stock actualizados" });
     } catch (err) {
-        console.error(err.message);
-        res.status(500).send("Error en el servidor al registrar la compra");
+        res.status(500).json({ error: err.message });
     }
 });
 
+// FINALIZAR VENTA (CARRITO)
+app.post('/ventas', async (req, res) => {
+    const { total, carrito } = req.body;
+    try {
+        // 1. Insertar cabecera
+        const resVenta = await query('INSERT INTO ventas (total) VALUES (?)', [parseFloat(total)]);
+        const ventaId = resVenta.insertId;
+
+        // 2. Insertar detalles y descontar stock
+        for (const item of carrito) {
+            await query(
+                'INSERT INTO detalle_ventas (venta_id, producto_id, cantidad, precio_unitario) VALUES (?, ?, ?, ?)',
+                [ventaId, item.id, item.cantidad, item.precio]
+            );
+            await query('UPDATE productos SET stock = stock - ? WHERE id = ?', [item.cantidad, item.id]);
+        }
+        res.json({ mensaje: "💰 Venta exitosa" });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// --- 3. INICIO ---
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Servidor en puerto ${PORT}`);
