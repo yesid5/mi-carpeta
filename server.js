@@ -22,7 +22,6 @@ const pool = mysql.createPool({
   enableKeepAlive: true
 });
 
-// Función auxiliar para consultas
 async function query(sql, params) {
   try {
     const [results] = await pool.execute(sql, params);
@@ -36,6 +35,7 @@ async function query(sql, params) {
 // --- 1. INICIALIZACIÓN DE TABLAS ---
 const inicializarDB = async () => {
   try {
+    // Crear tabla productos si no existe
     await query(`CREATE TABLE IF NOT EXISTS productos (
       id INT AUTO_INCREMENT PRIMARY KEY,
       nombre VARCHAR(255) NOT NULL,
@@ -48,6 +48,19 @@ const inicializarDB = async () => {
       ultimo_ibua DECIMAL(10,2) DEFAULT 0,
       fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )`);
+
+    // --- BLOQUE DE ACTUALIZACIÓN ---
+    // Intentamos agregar las columnas individualmente por si la tabla ya existía
+    const columnasNuevas = [
+      "ALTER TABLE productos ADD COLUMN IF NOT EXISTS precio_costo DECIMAL(10,2) DEFAULT 0",
+      "ALTER TABLE productos ADD COLUMN IF NOT EXISTS ultimo_iva INT DEFAULT 0",
+      "ALTER TABLE productos ADD COLUMN IF NOT EXISTS ultimo_icui DECIMAL(10,2) DEFAULT 0",
+      "ALTER TABLE productos ADD COLUMN IF NOT EXISTS ultimo_ibua DECIMAL(10,2) DEFAULT 0"
+    ];
+
+    for (let sql of columnasNuevas) {
+      try { await query(sql); } catch (e) { /* Ignorar si la columna ya existe */ }
+    }
 
     await query(`CREATE TABLE IF NOT EXISTS ventas (
       id INT AUTO_INCREMENT PRIMARY KEY,
@@ -80,18 +93,19 @@ const inicializarDB = async () => {
       FOREIGN KEY (venta_id) REFERENCES ventas(id),
       FOREIGN KEY (producto_id) REFERENCES productos(id)
     )`);
-    console.log("🚀 Base de datos sincronizada.");
+
+    console.log("🚀 Base de datos sincronizada y columnas verificadas.");
   } catch (err) {
     console.error("❌ Error al inicializar DB:", err.message);
   }
 };
+
 inicializarDB();
 
 // --- 2. RUTAS ---
 
 app.get('/', (req, res) => res.send('🏪 Servidor Tienda JP: ONLINE'));
 
-// OBTENER PRODUCTOS
 app.get('/productos', async (req, res) => {
   try {
     const rows = await query('SELECT * FROM productos ORDER BY nombre ASC');
@@ -99,7 +113,6 @@ app.get('/productos', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// CREAR PRODUCTO NUEVO
 app.post('/productos', async (req, res) => {
   const { nombre, precio, stock, codigo_barras } = req.body;
   try {
@@ -109,14 +122,12 @@ app.post('/productos', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// REGISTRAR COMPRA (FACTURA PROVEEDOR)
 app.post('/compras', async (req, res) => {
     const { 
         productoId, numeroFactura, proveedor, cantidad, 
         precioUnitario, iva, icui, ibua, fechaVencimiento 
     } = req.body;
 
-    // Limpieza de datos para evitar "undefined"
     const p_id = parseInt(productoId);
     const cant = parseInt(cantidad) || 0;
     const precio = parseFloat(precioUnitario) || 0;
@@ -125,13 +136,11 @@ app.post('/compras', async (req, res) => {
     const v_ibua = parseFloat(ibua) || 0;
 
     try {
-        // 1. Insertar en historial
         const sqlHistorial = `INSERT INTO historial_compras 
             (producto_id, numero_factura, proveedor, cantidad, precio_unitario_costo, iva_porcentaje, icui_valor, ibua_valor, fecha_vencimiento) 
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
         await query(sqlHistorial, [p_id, numeroFactura || 'S/N', proveedor || 'GENERICO', cant, precio, v_iva, v_icui, v_ibua, fechaVencimiento || null]);
 
-        // 2. Actualizar stock y últimos costos en tabla productos
         const sqlUpdate = `UPDATE productos SET 
                 stock = stock + ?, 
                 precio_costo = ?,
@@ -147,15 +156,12 @@ app.post('/compras', async (req, res) => {
     }
 });
 
-// FINALIZAR VENTA (CARRITO)
 app.post('/ventas', async (req, res) => {
     const { total, carrito } = req.body;
     try {
-        // 1. Insertar cabecera
         const resVenta = await query('INSERT INTO ventas (total) VALUES (?)', [parseFloat(total)]);
         const ventaId = resVenta.insertId;
 
-        // 2. Insertar detalles y descontar stock
         for (const item of carrito) {
             await query(
                 'INSERT INTO detalle_ventas (venta_id, producto_id, cantidad, precio_unitario) VALUES (?, ?, ?, ?)',
@@ -169,7 +175,6 @@ app.post('/ventas', async (req, res) => {
     }
 });
 
-// --- 3. INICIO ---
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Servidor en puerto ${PORT}`);
