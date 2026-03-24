@@ -22,6 +22,86 @@ const POSApp = () => {
   const [factura, setFactura] = useState({ 
     productoId: '', cantidad: '', precioUnitario: '', iva: 0, icui: 0, ibua: 0,
     numeroFactura: '', fechaVencimiento: '', proveedor: '' 
+    const { useState, useEffect } = React;
+
+const App = () => {
+    const [productos, setProductos] = useState([]);
+    const [productoEditando, setProductoEditando] = useState(null); // Estado para el modal
+
+    // ... (Tus funciones de obtenerProductos existentes)
+
+    const handleActualizar = async (e) => {
+        e.preventDefault();
+        try {
+            const res = await fetch(`https://mi-carpeta.onrender.com/productos/${productoEditando.id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(productoEditando)
+            });
+            if (res.ok) {
+                alert("Actualizado correctamente");
+                setProductoEditando(null); // Cierra el modal
+                obtenerProductos(); // Refresca la lista
+            }
+        } catch (err) {
+            console.error(err);
+        }
+    };
+
+    return (
+        <div>
+            {/* ... Tu código actual de navegación y lista ... */}
+
+            {/* BOTÓN DE EDITAR EN TU LISTA */}
+            {productos.map(p => (
+                <div key={p.id}>
+                    <span>{p.nombre}</span>
+                    <button onClick={() => setProductoEditando(p)}>📝 Editar</button>
+                </div>
+            ))}
+
+            {/* --- EL MODAL (Solo se muestra si productoEditando no es null) --- */}
+            {productoEditando && (
+                <div className="modal-overlay">
+                    <div className="modal-content">
+                        <h2>Editar Producto</h2>
+                        <form onSubmit={handleActualizar}>
+                            <label>Nombre</label>
+                            <input 
+                                type="text" 
+                                value={productoEditando.nombre} 
+                                onChange={(e) => setProductoEditando({...productoEditando, nombre: e.target.value})}
+                            />
+                            
+                            <label>Precio</label>
+                            <input 
+                                type="number" 
+                                value={productoEditando.precio} 
+                                onChange={(e) => setProductoEditando({...productoEditando, precio: e.target.value})}
+                            />
+
+                            <label>URL Imagen</label>
+                            <input 
+                                type="text" 
+                                placeholder="http://imagen.jpg"
+                                value={productoEditando.imagen_url || ''} 
+                                onChange={(e) => setProductoEditando({...productoEditando, imagen_url: e.target.value})}
+                            />
+
+                            <div className="modal-buttons">
+                                <button type="submit" className="btn-save">Guardar</button>
+                                <button type="button" className="btn-cancel" onClick={() => setProductoEditando(null)}>Cancelar</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(<App />);
   });
 
   // ASEGÚRATE DE QUE ESTA URL SEA LA DE TU RENDER
