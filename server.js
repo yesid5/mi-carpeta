@@ -35,7 +35,7 @@ async function query(sql, params) {
 // --- 1. INICIALIZACIÓN DE TABLAS ---
 const inicializarDB = async () => {
   try {
-    // Crear tabla productos si no existe
+    // 1. Crear tabla productos (si no existe, ya incluye las columnas)
     await query(`CREATE TABLE IF NOT EXISTS productos (
       id INT AUTO_INCREMENT PRIMARY KEY,
       nombre VARCHAR(255) NOT NULL,
@@ -49,19 +49,27 @@ const inicializarDB = async () => {
       fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )`);
 
-    // --- BLOQUE DE ACTUALIZACIÓN ---
-    // Intentamos agregar las columnas individualmente por si la tabla ya existía
-    const columnasNuevas = [
-      "ALTER TABLE productos ADD COLUMN IF NOT EXISTS precio_costo DECIMAL(10,2) DEFAULT 0",
-      "ALTER TABLE productos ADD COLUMN IF NOT EXISTS ultimo_iva INT DEFAULT 0",
-      "ALTER TABLE productos ADD COLUMN IF NOT EXISTS ultimo_icui DECIMAL(10,2) DEFAULT 0",
-      "ALTER TABLE productos ADD COLUMN IF NOT EXISTS ultimo_ibua DECIMAL(10,2) DEFAULT 0"
+    // 2. Bloque de actualización manual para tablas viejas
+    // Quitamos el "IF NOT EXISTS" del ALTER porque MySQL antiguo no lo entiende
+    const actualizaciones = [
+      "ALTER TABLE productos ADD COLUMN precio_costo DECIMAL(10,2) DEFAULT 0",
+      "ALTER TABLE productos ADD COLUMN ultimo_iva INT DEFAULT 0",
+      "ALTER TABLE productos ADD COLUMN ultimo_icui DECIMAL(10,2) DEFAULT 0",
+      "ALTER TABLE productos ADD COLUMN ultimo_ibua DECIMAL(10,2) DEFAULT 0"
     ];
 
-    for (let sql of columnasNuevas) {
-      try { await query(sql); } catch (e) { /* Ignorar si la columna ya existe */ }
+    for (let sql of actualizaciones) {
+      try { 
+        await query(sql); 
+      } catch (e) {
+        // Si el error es "Duplicate column name", lo ignoramos porque significa que ya existe
+        if (!e.message.includes("Duplicate column name")) {
+          console.error("Aviso (No crítico):", e.message);
+        }
+      }
     }
 
+    // 3. Crear el resto de las tablas
     await query(`CREATE TABLE IF NOT EXISTS ventas (
       id INT AUTO_INCREMENT PRIMARY KEY,
       fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -94,9 +102,9 @@ const inicializarDB = async () => {
       FOREIGN KEY (producto_id) REFERENCES productos(id)
     )`);
 
-    console.log("🚀 Base de datos sincronizada y columnas verificadas.");
+    console.log("🚀 Base de datos verificada y lista para operar.");
   } catch (err) {
-    console.error("❌ Error al inicializar DB:", err.message);
+    console.error("❌ Error crítico en DB:", err.message);
   }
 };
 
