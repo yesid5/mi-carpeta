@@ -202,14 +202,28 @@ app.post('/ventas', async (req, res) => {
 app.put('/productos/:id', async (req, res) => {
   const { id } = req.params;
   const { nombre, precio, stock, codigo_barras, imagen_url } = req.body;
-  
+
   try {
+    // Limpiamos los valores antes de enviarlos a MySQL
+    const v_nombre = nombre || "Sin nombre";
+    const v_precio = parseFloat(precio) || 0;
+    const v_stock = parseInt(stock) || 0;
+    const v_codigo = codigo_barras || null;
+    const v_imagen = imagen_url || null;
+
     const sql = `UPDATE productos SET 
       nombre = ?, precio = ?, stock = ?, codigo_barras = ?, imagen_url = ? 
       WHERE id = ?`;
-    await query(sql, [nombre, precio, stock, codigo_barras, imagen_url, id]);
-    res.json({ mensaje: "✅ Producto actualizado" });
+
+    const resultado = await query(sql, [v_nombre, v_precio, v_stock, v_codigo, v_imagen, id]);
+
+    if (resultado.affectedRows === 0) {
+      return res.status(404).json({ error: "Producto no encontrado" });
+    }
+
+    res.json({ mensaje: "✅ Producto actualizado correctamente" });
   } catch (err) {
+    console.error("❌ Error en UPDATE:", err.message);
     res.status(500).json({ error: err.message });
   }
 });
