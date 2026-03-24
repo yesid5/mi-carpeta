@@ -122,12 +122,28 @@ app.get('/productos', async (req, res) => {
 });
 
 app.post('/productos', async (req, res) => {
+  // Extraemos los datos del cuerpo
   const { nombre, precio, stock, codigo_barras } = req.body;
+  
+  // LIMPIEZA RIGUROSA: Convertimos cualquier 'undefined' en un valor válido para SQL
+  const v_nombre = nombre || "Producto sin nombre";
+  const v_precio = parseFloat(precio) || 0;
+  const v_stock = parseInt(stock) || 0;
+  const v_codigo = (codigo_barras === undefined || codigo_barras === "") ? null : codigo_barras;
+
   try {
-    await query('INSERT INTO productos (nombre, precio, stock, codigo_barras) VALUES (?, ?, ?, ?)', 
-    [nombre, precio, stock || 0, codigo_barras]);
-    res.status(201).json({ message: "Producto creado" });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+    const sql = `INSERT INTO productos 
+      (nombre, precio, stock, codigo_barras, precio_costo, ultimo_iva, ultimo_icui, ultimo_ibua) 
+      VALUES (?, ?, ?, ?, 0, 0, 0, 0)`;
+    
+    // Al usar v_codigo, nos aseguramos de que sea un string o null, nunca undefined
+    await query(sql, [v_nombre, v_precio, v_stock, v_codigo]);
+
+    res.status(201).json({ mensaje: "✅ Producto creado con éxito" });
+  } catch (err) {
+    console.error("❌ Error en INSERT productos:", err.message);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 app.post('/compras', async (req, res) => {
