@@ -198,7 +198,33 @@ app.post('/ventas', async (req, res) => {
         res.status(500).json({ error: err.message });
     }
 });
+// --- ACTUALIZAR PRODUCTO ---
+app.put('/productos/:id', async (req, res) => {
+  const { id } = req.params;
+  const { nombre, precio, stock, codigo_barras, imagen_url } = req.body;
+  
+  try {
+    const sql = `UPDATE productos SET 
+      nombre = ?, precio = ?, stock = ?, codigo_barras = ?, imagen_url = ? 
+      WHERE id = ?`;
+    await query(sql, [nombre, precio, stock, codigo_barras, imagen_url, id]);
+    res.json({ mensaje: "✅ Producto actualizado" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
+// --- ELIMINAR PRODUCTO ---
+app.delete('/productos/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    // Primero verificamos si no tiene historial de compras (por integridad)
+    await query('DELETE FROM productos WHERE id = ?', [id]);
+    res.json({ mensaje: "🗑️ Producto eliminado" });
+  } catch (err) {
+    res.status(500).json({ error: "No se puede eliminar porque tiene historial de compras o ventas." });
+  }
+});
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Servidor en puerto ${PORT}`);
