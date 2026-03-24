@@ -190,8 +190,6 @@ mostrarLogin && React.createElement("div", { className: "modal-overlay" },
       autoComplete: "current-password" // Ayuda a quitar el aviso del navegador
     }),
     React.createElement("button", { type: "submit", className: "btn-pay" }, "INGRESAR"),
-    React.createElement("button", { type: "button", className: "btn-close", onClick: () => setMostrarLogin(false) }, "Cerrar")
-  )
-)
-
-ReactDOM.render(React.createElement(POSApp, null), document.getElementById('root'));
+    React.createElement("button", { type: "button", className: "btn-close", onClick: () => setMostrarLogin(false) }, ment(POSApp, null), document.getElementById('root'));
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(React.createElement(POSApp));
