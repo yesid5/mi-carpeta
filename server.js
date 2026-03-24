@@ -183,24 +183,29 @@ app.post('/compras', async (req, res) => {
         res.status(500).json({ error: err.message });
     }
 });
-
 app.post('/ventas', async (req, res) => {
-  const { total, carrito, metodo_pago } = req.body;
-  try {
-    const pagoSeguro = metodo_pago || 'Efectivo';
-    const resVenta = await query('INSERT INTO ventas (total, metodo_pago) VALUES (?, ?)', [total, pagoSeguro]);
-    const ventaId = resVenta.insertId;
+    const { total, carrito } = req.body;
+    const totalVenta = parseFloat(total) || 0;
 
-    for (const item of carrito) {
-      await query('INSERT INTO detalle_ventas (venta_id, producto_id, cantidad, precio_unitario) VALUES (?, ?, ?, ?)',
-        [ventaId, item.id, item.cantidad, item.precio]);
-      await query('UPDATE productos SET stock = stock - ? WHERE id = ?', [item.cantidad, item.id]);
+    try {
+        // Insertar cabecera de venta
+        const [resVenta] = await pool.query('INSERT INTO ventas (total) VALUES (?)', [totalVenta]);
+        const ventaId = resVenta.insertId;
+
+        // Registrar detalles
+        for (const item of carrito) {
+            await pool.query(
+                'INSERT INTO ventas_detalle (venta_id, producto_id, cantidad, precio_unitario_venta) VALUES (?, ?, ?, ?)',
+                [ventaId, item.id, item.cantidad, item.precio]
+            );
+            // Descontar stock
+            await pool.query('UPDATE productos SET stock = stock - ? WHERE id = ?', [item.cantidad, item.id]);
+        }
+        res.json({ mensaje: "Venta exitosa" });
+    } catch (err) {
+        console.error(err);
+        res.status(500).send("Error en la venta");
     }
-    res.json({ message: "Venta exitosa" });
-  } catch (err) { 
-    console.error(err);
-    res.status(500).json({ error: "Error en base de datos", detalle: err.message }); 
-  }
 });
 
 app.post('/productos', async (req, res) => {
