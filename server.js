@@ -56,7 +56,6 @@ const inicializarDB = async () => {
       "ALTER TABLE productos ADD COLUMN ultimo_iva INT DEFAULT 0",
       "ALTER TABLE productos ADD COLUMN ultimo_icui DECIMAL(10,2) DEFAULT 0",
       "ALTER TABLE productos ADD COLUMN ultimo_ibua DECIMAL(10,2) DEFAULT 0"
-      ALTER TABLE productos ADD COLUMN imagen_url TEXT;
     ];
 
     for (let sql of actualizaciones) {
