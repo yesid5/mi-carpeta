@@ -97,21 +97,51 @@ app.get('/productos', async (req, res) => {
 // server.js - Backend
 // server.js - Versión para MySQL
 app.post('/compras', async (req, res) => {
+    // Extraemos los datos del cuerpo de la petición
     const { 
         productoId, numeroFactura, proveedor, cantidad, 
         precioUnitario, iva, icui, ibua, fechaVencimiento 
     } = req.body;
 
+    // LIMPIEZA DE DATOS: Si algo viene vacío, le ponemos un valor por defecto o null
+    const p_id = productoId || null;
+    const n_fac = numeroFactura || 'SIN-NUMERO';
+    const prov = proveedor || 'GENERICO';
+    const cant = parseInt(cantidad) || 0;
+    const precio = parseFloat(precioUnitario) || 0;
+    const v_iva = parseInt(iva) || 0;
+    const v_icui = parseFloat(icui) || 0;
+    const v_ibua = parseFloat(ibua) || 0;
+    const f_venc = fechaVencimiento || null; // MySQL acepta null para fechas
+
     try {
-        // En MySQL las transacciones se manejan según el driver, 
-        // pero lo más importante son los signos '?'
-        
-        // 1. Insertar en historial_compras
+        // 1. Insertar en historial_compras usando "?"
         const sqlHistorial = `INSERT INTO historial_compras 
             (producto_id, numero_factura, proveedor, cantidad, precio_unitario_costo, iva_porcentaje, icui_valor, ibua_valor, fecha_vencimiento) 
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
         
-        await pool.query(sqlHistorial, [productoId, numeroFactura, proveedor, cantidad, precioUnitario, iva, icui, ibua, fechaVencimiento]);
+        const paramsHistorial = [p_id, n_fac, prov, cant, precio, v_iva, v_icui, v_ibua, f_venc];
+        await pool.query(sqlHistorial, paramsHistorial);
+
+        // 2. Actualizar el producto maestro
+        const sqlUpdate = `UPDATE productos SET 
+                stock = stock + ?, 
+                precio_costo = ?,
+                ultimo_iva = ?,
+                ultimo_icui = ?,
+                ultimo_ibua = ?
+             WHERE id = ?`;
+
+        const paramsUpdate = [cant, precio, v_iva, v_icui, v_ibua, p_id];
+        await pool.query(sqlUpdate, paramsUpdate);
+
+        res.status(201).json({ mensaje: "✅ Compra y Stock actualizados" });
+
+    } catch (err) {
+        console.error("❌ ERROR EN SQL:", err.sqlMessage || err.message);
+        res.status(500).json({ error: "Error interno en el servidor" });
+    }
+});
 
         // 2. Actualizar el producto
         const sqlUpdate = `UPDATE productos SET 
