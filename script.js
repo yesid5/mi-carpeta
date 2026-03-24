@@ -193,3 +193,5 @@ mostrarLogin && React.createElement("div", { className: "modal-overlay" },
     React.createElement("button", { type: "button", className: "btn-close", onClick: () => setMostrarLogin(false) }, ment(POSApp, null), document.getElementById('root'));
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(React.createElement(POSApp));
+  // Al final de todo tu código de POSApp...
+ReactDOM.render(React.createElement(POSApp), document.getElementById('root'));
