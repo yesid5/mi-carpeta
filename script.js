@@ -174,14 +174,24 @@ const POSApp = () => {
     ),
 
     // --- (Aquí irían el resto de tus modales de Login e Inventario que ya tenías) ---
-    mostrarLogin && React.createElement("div", { className: "modal-overlay" },
-        React.createElement("div", { className: "modal-content login-box" },
-          React.createElement("h2", null, "🔒 Acceso Admin"),
-          React.createElement("input", { type: "password", className: "input-form", placeholder: "PIN", value: pin, onChange: e => setPin(e.target.value) }),
-          React.createElement("button", { className: "btn-pay", onClick: () => pin === CLAVE_ADMIN ? (setIsAdmin(true), setMostrarLogin(false), setPin('')) : alert("Clave mal") }, "INGRESAR")
-        )
-    )
-  );
-};
+// Busca donde dice mostrarLogin && ... y envuelve el contenido en un FORM
+mostrarLogin && React.createElement("div", { className: "modal-overlay" },
+  React.createElement("form", { 
+    className: "modal-content login-box",
+    onSubmit: (e) => { e.preventDefault(); manejarLogin(); } // Previene que la página se recargue
+  },
+    React.createElement("h2", null, "🔒 Acceso Admin"),
+    React.createElement("input", { 
+      type: "password", 
+      className: "input-form", 
+      placeholder: "PIN", 
+      value: pin, 
+      onChange: e => setPin(e.target.value),
+      autoComplete: "current-password" // Ayuda a quitar el aviso del navegador
+    }),
+    React.createElement("button", { type: "submit", className: "btn-pay" }, "INGRESAR"),
+    React.createElement("button", { type: "button", className: "btn-close", onClick: () => setMostrarLogin(false) }, "Cerrar")
+  )
+)
 
 ReactDOM.render(React.createElement(POSApp, null), document.getElementById('root'));
