@@ -15,81 +15,40 @@ const pool = mysql.createPool({
   ssl: { rejectUnauthorized: false }
 });
 
-async function query(sql, params) {
-  const [results] = await pool.execute(sql, params);
-  return results;
-}
+// Ruta de Bienvenida
+app.get('/', (req, res) => res.send('🏪 API Tienda JP Online y Lista'));
 
-// INICIALIZACIÓN
-const inicializarDB = async () => {
-  try {
-    await query(`CREATE TABLE IF NOT EXISTS productos (
-      id INT AUTO_INCREMENT PRIMARY KEY,
-      nombre VARCHAR(255) NOT NULL,
-      precio DECIMAL(10,2) NOT NULL,
-      stock INT DEFAULT 0,
-      codigo_barras VARCHAR(100) UNIQUE,
-      imagen_url TEXT,
-      precio_costo DECIMAL(10,2) DEFAULT 0,
-      ultimo_iva INT DEFAULT 0,
-      ultimo_icui DECIMAL(10,2) DEFAULT 0,
-      ultimo_ibua DECIMAL(10,2) DEFAULT 0
-    )`);
-
-    // Intentar agregar columnas si la tabla ya existía (ignora error si ya están)
-    const columnas = [
-      "ALTER TABLE productos ADD COLUMN imagen_url TEXT",
-      "ALTER TABLE productos ADD COLUMN precio_costo DECIMAL(10,2) DEFAULT 0",
-      "ALTER TABLE productos ADD COLUMN ultimo_iva INT DEFAULT 0"
-    ];
-    for (let sql of columnas) {
-      try { await query(sql); } catch (e) { /* Ignorar duplicados */ }
-    }
-
-    await query(`CREATE TABLE IF NOT EXISTS ventas (
-      id INT AUTO_INCREMENT PRIMARY KEY,
-      fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      total DECIMAL(10,2) NOT NULL
-    )`);
-
-    await query(`CREATE TABLE IF NOT EXISTS detalle_ventas (
-      id INT AUTO_INCREMENT PRIMARY KEY,
-      venta_id INT,
-      producto_id INT,
-      cantidad INT,
-      precio_unitario DECIMAL(10,2),
-      FOREIGN KEY (venta_id) REFERENCES ventas(id),
-      FOREIGN KEY (producto_id) REFERENCES productos(id)
-    )`);
-
-    console.log("🚀 Server Ready");
-  } catch (err) { console.error("Error DB:", err.message); }
-};
-inicializarDB();
-
-// RUTAS
+// Obtener Productos
 app.get('/productos', async (req, res) => {
-  const rows = await query('SELECT * FROM productos ORDER BY nombre ASC');
-  res.json(rows);
+  try {
+    const [rows] = await pool.execute('SELECT * FROM productos ORDER BY nombre ASC');
+    res.json(rows);
+  } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// Procesar Venta con Transacción
 app.post('/ventas', async (req, res) => {
   const { total, carrito } = req.body;
-  const conn = await pool.getConnection();
+  const connection = await pool.getConnection();
   try {
-    await conn.beginTransaction();
-    const [v] = await conn.execute('INSERT INTO ventas (total) VALUES (?)', [total]);
-    for (let item of carrito) {
-      await conn.execute('INSERT INTO detalle_ventas (venta_id, producto_id, cantidad, precio_unitario) VALUES (?,?,?,?)', 
-      [v.insertId, item.id, item.cantidad, item.precio]);
-      await conn.execute('UPDATE productos SET stock = stock - ? WHERE id = ?', [item.cantidad, item.id]);
+    await connection.beginTransaction();
+    const [resVenta] = await connection.execute('INSERT INTO ventas (total) VALUES (?)', [total]);
+    const ventaId = resVenta.insertId;
+
+    for (const item of carrito) {
+      await connection.execute(
+        'INSERT INTO detalle_ventas (venta_id, producto_id, cantidad, precio_unitario) VALUES (?, ?, ?, ?)',
+        [ventaId, item.id, item.cantidad, item.precio]
+      );
+      await connection.execute('UPDATE productos SET stock = stock - ? WHERE id = ?', [item.cantidad, item.id]);
     }
-    await conn.commit();
-    res.json({ mensaje: "Venta Exitosa" });
-  } catch (e) {
-    await conn.rollback();
-    res.status(500).json({ error: e.message });
-  } finally { conn.release(); }
+    await connection.commit();
+    res.json({ mensaje: "✅ Venta exitosa", ventaId });
+  } catch (err) {
+    await connection.rollback();
+    res.status(500).json({ error: err.message });
+  } finally { connection.release(); }
 });
 
-app.listen(process.env.PORT || 10000, '0.0.0.0');
+const PORT = process.env.PORT || 10000;
+app.listen(PORT, '0.0.0.0', () => console.log(`🚀 Puerto: ${PORT}`));
