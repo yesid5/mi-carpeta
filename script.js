@@ -102,7 +102,7 @@ const POSApp = () => {
         React.createElement("div", { className: "factura-panel" },
           React.createElement("div", { className: "factura-header" },
             React.createElement("h2", null, "FACTURA DE VENTA"),
-            React.createElement("p", null, "MERCAEXPRESS 33 - NIT: 900.123.456-1"),
+            React.createElement("p", null, "TIENDA JP - NIT: 900.123.456-1"),
             React.createElement("p", null, "Res. DIAN No. 1876... del 2026")
           ),
           React.createElement("div", { className: "factura-items" },
