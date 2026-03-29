@@ -1,4 +1,3 @@
-// 1. CORRECCIÓN: Se agregó el "=" que faltaba
 const API_URL = "https://mi-carpeta.onrender.com"; 
 
 const POSApp = () => {
@@ -6,7 +5,6 @@ const POSApp = () => {
   const [carrito, setCarrito] = React.useState([]);
   const [busqueda, setBusqueda] = React.useState("");
 
-  // Función para cargar productos desde el backend
   const cargarProductos = async () => {
     try {
       const res = await fetch(`${API_URL}/productos`);
@@ -56,13 +54,12 @@ const POSApp = () => {
   
   const totalCarrito = carrito.reduce((acc, i) => acc + (Number(i.precio) * i.cantidad), 0);
 
-  // --- RENDERIZADO ---
   return React.createElement("div", { className: "container" },
     React.createElement("h1", null, "🏪 Tienda JP"),
     
     React.createElement("input", {
       type: "text",
-      className: "search-input", // Agregamos clase para CSS
+      className: "search-input",
       placeholder: "🔍 Buscar producto...",
       value: busqueda,
       onChange: (e) => setBusqueda(e.target.value)
@@ -76,7 +73,6 @@ const POSApp = () => {
           onClick: () => agregarAlCarrito(p) 
         },
           React.createElement("img", { 
-            // Usamos una imagen de respaldo más confiable que placeholder.com
             src: p.imagen_url || 'https://img.icons8.com/fluency/100/box.png',
             style: { width: '80px', height: '80px', objectFit: 'cover' },
             onError: (e) => { e.target.src = 'https://img.icons8.com/fluency/100/box.png'; }
@@ -87,7 +83,6 @@ const POSApp = () => {
       )
     ),
 
-    // Mostrar footer solo si hay productos en el carrito
     carrito.length > 0 && React.createElement("div", { className: "footer-carrito" },
       React.createElement("button", { 
         className: "btn-pay", 
@@ -97,7 +92,8 @@ const POSApp = () => {
   );
 };
 
-// 2. CORRECCIÓN: Renderizado compatible con React 18
-const container = document.getElementById('root');
-const root = ReactDOM.createRoot(container);
-root.render(React.createElement(POSApp));
+// --- RENDERIZADO CLÁSICO (Compatible con tu HTML) ---
+ReactDOM.render(
+  React.createElement(POSApp), 
+  document.getElementById('root')
+);
