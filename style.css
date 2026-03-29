@@ -21,14 +21,15 @@ body {
   background: var(--bg); 
   margin: 0; 
   color: var(--text);
+  overflow: hidden; 
 }
 
 /* =========================================
-   2. ESTRUCTURA (NAV SUPERIOR HORIZONTAL)
+   2. ESTRUCTURA Y NAVEGACIÓN
    ========================================= */
 .pos-container { 
   display: flex; 
-  flex-direction: column; /* Cambiado a columna para nav horizontal */
+  flex-direction: column; 
   height: 100vh; 
   width: 100vw;
 }
@@ -45,47 +46,55 @@ body {
   z-index: 1000;
 }
 
-.nav-logo {
-  font-size: 1.2rem;
-  font-weight: 800;
-  color: var(--accent);
-}
+.nav-logo { font-size: 1.2rem; font-weight: 800; color: var(--accent); }
 
-.nav-links {
-  display: flex;
-  gap: 10px;
-  height: 100%;
-}
+.nav-links { display: flex; gap: 10px; height: 100%; }
 
 .nav-links button {
-  background: none;
-  border: none;
-  color: #bdc3c7;
-  padding: 0 20px;
-  font-size: 0.95rem;
-  cursor: pointer;
-  transition: 0.2s;
-  height: 100%;
-  display: flex;
-  align-items: center;
+  background: none; border: none; color: #bdc3c7; padding: 0 20px;
+  font-size: 0.95rem; cursor: pointer; transition: 0.2s;
+  height: 100%; display: flex; align-items: center;
   border-bottom: 3px solid transparent;
 }
 
 .nav-links button:hover, .nav-links button.active {
-  color: white;
-  background: rgba(255, 255, 255, 0.05);
+  color: white; background: rgba(255, 255, 255, 0.05);
   border-bottom: 3px solid var(--accent);
 }
 
-.main-panel { 
-  flex: 1; 
-  padding: 25px; 
-  overflow-y: auto; 
-  background: var(--bg);
-}
+.main-panel { flex: 1; padding: 25px; overflow-y: auto; background: var(--bg); }
 
 /* =========================================
-   3. ADMIN HORIZONTAL (TARJETAS)
+   3. SEGURIDAD (LOGIN ADMIN)
+   ========================================= */
+.login-box {
+  max-width: 400px;
+  margin: 80px auto;
+  background: var(--white);
+  padding: 40px;
+  border-radius: 20px;
+  text-align: center;
+  box-shadow: var(--shadow);
+  animation: fadeIn 0.4s ease;
+}
+
+.login-box h2 { margin-bottom: 20px; color: var(--dark-sidebar); }
+
+.login-box input {
+  width: 100%;
+  padding: 15px;
+  margin-bottom: 20px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-size: 1.2rem;
+  text-align: center;
+  outline: none;
+}
+
+.login-box input:focus { border-color: var(--accent); }
+
+/* =========================================
+   4. ADMIN (FACTURACIÓN Y OTROS)
    ========================================= */
 .admin-horizontal {
   display: flex;
@@ -101,20 +110,25 @@ body {
   box-shadow: var(--shadow);
 }
 
+.admin-card h2 { 
+  font-size: 1.1rem; 
+  margin-top: 0; 
+  margin-bottom: 20px; 
+  color: var(--dark-sidebar);
+  border-left: 4px solid var(--accent);
+  padding-left: 15px;
+}
+
 .admin-form-row {
   display: flex;
-  flex-wrap: wrap; /* Para que sea responsivo */
+  flex-wrap: wrap;
   gap: 15px;
   align-items: flex-end;
 }
 
-.admin-form-row .input-group {
+.admin-form-row input, .admin-form-row select {
   flex: 1;
-  min-width: 200px;
-}
-
-.admin-form-row input {
-  width: 100%;
+  min-width: 180px;
   padding: 12px;
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -122,84 +136,92 @@ body {
 }
 
 /* =========================================
-   4. PRODUCTOS (SOLUCIÓN VISIBILIDAD)
+   5. MODAL DE CONFIRMACIÓN (VISTA VIP)
    ========================================= */
-.product-grid { 
-  display: grid; 
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); 
-  gap: 25px;
-  margin-top: 20px;
-}
-
-.product-card { 
-  background: var(--white); 
-  border-radius: 12px; 
-  overflow: hidden;
-  box-shadow: var(--shadow);
-  transition: transform 0.2s, box-shadow 0.2s;
-  cursor: pointer;
-  border: 1px solid transparent;
-}
-
-.product-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 8px 20px rgba(0,0,0,0.1);
-  border-color: var(--accent);
-}
-
-.prod-img { 
-  width: 100%; 
-  height: 140px; 
-  object-fit: contain; 
-  padding: 15px; 
-  background: #fdfdfd; 
-}
-
-.card-info { padding: 15px; text-align: center; }
-
-.price { 
-  color: var(--primary); 
-  font-weight: 800; 
-  font-size: 1.3rem; 
-  display: block;
-  margin: 5px 0;
-}
-
-/* =========================================
-   5. CARRITO Y COMPONENTES FLOTANTES
-   ========================================= */
-.fab-cart {
+.modal-overlay {
   position: fixed;
-  bottom: 30px;
-  right: 30px;
-  width: 70px;
-  height: 70px;
-  border-radius: 50%;
-  background: var(--primary);
-  color: white;
-  border: none;
-  box-shadow: 0 10px 25px rgba(40, 167, 69, 0.4);
-  cursor: pointer;
-  z-index: 1000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.8rem;
+  top: 0; left: 0; width: 100%; height: 100%;
+  background: rgba(15, 23, 42, 0.7);
+  backdrop-filter: blur(5px);
+  display: flex; justify-content: center; align-items: center;
+  z-index: 2000;
 }
 
-/* Animación de entrada */
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+.modal-content {
+  background: var(--white);
+  width: 95%;
+  max-width: 550px;
+  border-radius: 25px;
+  overflow: hidden;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  animation: slideUp 0.3s ease-out;
+}
+
+.modal-header {
+  background: var(--dark-sidebar);
+  color: white;
+  padding: 20px 25px;
+  display: flex; justify-content: space-between; align-items: center;
+}
+
+.confirm-list {
+  padding: 20px 25px;
+  max-height: 250px;
+  overflow-y: auto;
+}
+
+.confirm-item {
+  display: flex; justify-content: space-between;
+  padding: 12px 0;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.confirm-total {
+  background: #f8fafc;
+  padding: 30px;
+  text-align: center;
+  border-top: 2px dashed var(--border);
+}
+
+.confirm-total span { color: #64748b; font-weight: 600; text-transform: uppercase; }
+.confirm-total h2 { color: var(--primary); margin: 10px 0 0; font-size: 2.5rem; }
+
+.modal-actions {
+  padding: 20px 25px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.btn-pay {
+  background: var(--primary); color: white; border: none;
+  padding: 18px; border-radius: 12px; font-weight: 800;
+  font-size: 1.2rem; cursor: pointer; transition: 0.2s;
+}
+
+.btn-pay:hover { background: var(--primary-dark); transform: scale(1.02); }
+
+.btn-cancel {
+  background: transparent; color: var(--danger); border: 1.5px solid var(--danger);
+  padding: 12px; border-radius: 12px; font-weight: 600; cursor: pointer;
 }
 
 /* =========================================
-   6. RESPONSIVE
+   6. ANIMACIONES Y RESPONSIVE
    ========================================= */
+@keyframes slideUp {
+  from { transform: translateY(40px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
 @media (max-width: 600px) {
-  .top-nav { padding: 0 10px; height: 110px; flex-direction: column; justify-content: center; gap: 10px; }
-  .nav-links { height: auto; }
+  .top-nav { height: auto; padding: 15px; flex-direction: column; gap: 15px; }
+  .nav-links { width: 100%; justify-content: space-around; }
   .nav-links button { padding: 10px; border-bottom: none; }
-  .product-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
-  .admin-form-row .input-group { min-width: 100%; }
+  .admin-form-row input { min-width: 100%; }
 }
