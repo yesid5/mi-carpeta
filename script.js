@@ -62,7 +62,7 @@ const POSApp = () => {
     
     // BARRA SUPERIOR
     React.createElement("nav", { className: "top-nav" },
-      React.createElement("div", { className: "nav-logo" }, "MercaExpress 33"),
+      React.createElement("div", { className: "nav-logo" }, "TIENDA JP"),
       React.createElement("div", { className: "nav-links" },
         React.createElement("button", { onClick: () => {setSeccion("tienda"); setAutenticado(false);}, className: seccion === "tienda" ? "active" : "" }, "🛒 Ventas"),
         React.createElement("button", { onClick: () => setSeccion("login"), className: seccion === "admin" || seccion === "login" ? "active" : "" }, "⚙️ Admin")
