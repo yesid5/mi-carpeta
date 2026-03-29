@@ -3,7 +3,7 @@ const API_URL = "https://mi-carpeta.onrender.com";
 const POSApp = () => {
   const [productos, setProductos] = React.useState([]);
   const [carrito, setCarrito] = React.useState([]);
-  const [seccion, setSeccion] = React.useState("tienda");
+  const [seccion, setSeccion] = React.useState("TIENDA JP");
   const [verCarrito, setVerCarrito] = React.useState(false);
   const [autenticado, setAutenticado] = React.useState(false);
   const [password, setPassword] = React.useState("");
