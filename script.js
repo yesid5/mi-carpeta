@@ -92,7 +92,8 @@ const POSApp = () => {
   );
 };
 
-// --- RENDERIZADO CLÁSICO (Compatible con tu HTML) ---
+// --- MÉTODO DE RENDERIZADO COMPATIBLE ---
+// Cambiamos createRoot por render para evitar el TypeError
 ReactDOM.render(
   React.createElement(POSApp), 
   document.getElementById('root')
