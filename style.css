@@ -1,231 +1,74 @@
-/* =========================================
-   1. VARIABLES Y CONFIGURACIÓN BASE
-   ========================================= */
 :root { 
-  --primary: #28a745; 
-  --primary-dark: #218838;
-  --accent: #3498db;
-  --bg: #f4f7f6; 
-  --white: #ffffff;
-  --border: #e0e0e0;
-  --danger: #e74c3c;
-  --dark-sidebar: #2c3e50; 
-  --text: #334155;
-  --shadow: 0 4px 12px rgba(0,0,0,0.08);
+  --primary: #28a745; --accent: #3498db; --bg: #f4f7f6; --white: #ffffff;
+  --dark-sidebar: #2c3e50; --text: #334155; --shadow: 0 4px 12px rgba(0,0,0,0.08);
 }
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+body { font-family: 'Inter', sans-serif; background: var(--bg); margin: 0; overflow: hidden; }
 
-body { 
-  font-family: 'Inter', 'Segoe UI', sans-serif; 
-  background: var(--bg); 
-  margin: 0; 
-  color: var(--text);
-  overflow: hidden; 
-}
+.pos-container { display: flex; flex-direction: column; height: 100vh; }
 
-/* =========================================
-   2. ESTRUCTURA Y NAVEGACIÓN
-   ========================================= */
-.pos-container { 
-  display: flex; 
-  flex-direction: column; 
-  height: 100vh; 
-  width: 100vw;
-}
-
+/* NAVEGACIÓN */
 .top-nav {
-  background: var(--dark-sidebar);
-  color: white;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 25px;
-  height: 65px;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-  z-index: 1000;
+  background: var(--dark-sidebar); color: white;
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 0 20px; height: 65px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);
 }
-
-.nav-logo { font-size: 1.2rem; font-weight: 800; color: var(--accent); }
-
-.nav-links { display: flex; gap: 10px; height: 100%; }
-
+.nav-links { display: flex; height: 100%; }
 .nav-links button {
   background: none; border: none; color: #bdc3c7; padding: 0 20px;
-  font-size: 0.95rem; cursor: pointer; transition: 0.2s;
-  height: 100%; display: flex; align-items: center;
-  border-bottom: 3px solid transparent;
+  cursor: pointer; border-bottom: 3px solid transparent; transition: 0.3s;
 }
+.nav-links button.active { color: white; border-bottom-color: var(--accent); background: rgba(255,255,255,0.05); }
 
-.nav-links button:hover, .nav-links button.active {
-  color: white; background: rgba(255, 255, 255, 0.05);
-  border-bottom: 3px solid var(--accent);
-}
-
-.main-panel { flex: 1; padding: 25px; overflow-y: auto; background: var(--bg); }
-
-/* =========================================
-   3. PRODUCTOS (FORZAR GRID Y CLIC)
-   ========================================= */
+/* PRODUCTOS - GRID FORZADO */
+.main-panel { flex: 1; padding: 20px; overflow-y: auto; }
 .product-grid { 
   display: grid !important; 
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); 
-  gap: 20px;
-  padding: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)) !important; 
+  gap: 20px !important;
 }
 
 .product-card { 
-  background: var(--white); 
-  border-radius: 15px; 
-  padding: 15px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-  box-shadow: var(--shadow);
-  cursor: pointer; /* Indica que se puede hacer clic */
-  transition: all 0.2s ease;
-  border: 1px solid transparent;
-  animation: fadeIn 0.4s ease;
-  position: relative;
+  background: white; border-radius: 15px; padding: 15px;
+  display: flex !important; flex-direction: column !important;
+  align-items: center; text-align: center; box-shadow: var(--shadow);
+  cursor: pointer; height: 250px; justify-content: space-between;
+  border: 1px solid transparent; transition: 0.2s;
 }
+.product-card:hover { border-color: var(--accent); transform: translateY(-3px); }
+.prod-img { width: 100%; height: 110px; object-fit: contain; pointer-events: none; }
 
-.product-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 8px 15px rgba(0,0,0,0.12);
-  border-color: var(--accent);
-}
+/* ADMIN */
+.admin-card { background: white; padding: 25px; border-radius: 15px; margin-bottom: 20px; box-shadow: var(--shadow); }
+.admin-card h2 { font-size: 1.1rem; border-left: 4px solid var(--accent); padding-left: 10px; margin-top: 0; }
+.admin-form-row { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; }
+.admin-form-row input { flex: 1; min-width: 160px; padding: 12px; border: 1px solid #ddd; border-radius: 8px; }
 
-.product-card:active { transform: scale(0.95); }
+.total-badge { background: var(--dark-sidebar); color: var(--primary); padding: 12px; border-radius: 8px; font-weight: bold; }
 
-.prod-img { 
-  width: 100%; 
-  height: 120px; 
-  object-fit: contain; 
-  margin-bottom: 15px;
-  pointer-events: none; /* Evita que la imagen bloquee el clic de la tarjeta */
-}
+/* TABLAS */
+.report-table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+.report-table th { background: #f8fafc; padding: 10px; text-align: left; }
+.report-table td { padding: 10px; border-bottom: 1px solid #eee; }
+.btn-edit-small { background: var(--accent); color: white; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer; }
 
-.card-info h3 { margin: 0 0 10px; font-size: 1rem; color: var(--dark-sidebar); }
-
-.price { 
-  color: var(--primary); 
-  font-weight: 800; 
-  font-size: 1.2rem; 
-  display: block;
-}
-
-/* =========================================
-   4. ADMIN (TOTALMENTE HORIZONTAL)
-   ========================================= */
-.admin-horizontal {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-  animation: fadeIn 0.3s ease;
-}
-
-.admin-card {
-  background: var(--white);
-  padding: 25px;
-  border-radius: 15px;
-  box-shadow: var(--shadow);
-}
-
-.admin-card h2 { 
-  font-size: 1.1rem; 
-  margin-top: 0; 
-  margin-bottom: 20px; 
-  color: var(--dark-sidebar);
-  border-left: 4px solid var(--accent);
-  padding-left: 15px;
-}
-
-.admin-form-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 15px;
-  align-items: flex-end;
-}
-
-.admin-form-row input, .admin-form-row select {
-  flex: 1;
-  min-width: 180px;
-  padding: 12px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  outline: none;
-}
-
-.total-badge {
-  background: var(--dark-sidebar);
-  color: var(--primary);
-  padding: 12px 20px;
-  border-radius: 8px;
-  font-weight: 800;
-  font-size: 1.1rem;
-  display: flex;
-  align-items: center;
-  border: 1px solid var(--primary);
-}
-
-/* =========================================
-   5. TABLAS Y REPORTES
-   ========================================= */
-.report-table {
-  width: 100%;
-  border-collapse: collapse;
-  margin-top: 15px;
-}
-
-.report-table th { background: #f8fafc; padding: 12px; text-align: left; color: #64748b; }
-.report-table td { padding: 12px; border-bottom: 1px solid #f1f5f9; }
-
-.metrics-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 15px;
-}
-
-.metric-box {
-  background: #f8fafc;
-  padding: 20px;
-  border-radius: 12px;
-  text-align: center;
-  border: 1px solid #e2e8f0;
-}
-
-/* =========================================
-   6. MODAL Y BOTONES
-   ========================================= */
+/* MODAL */
 .modal-overlay {
-  position: fixed;
-  top: 0; left: 0; width: 100%; height: 100%;
-  background: rgba(15, 23, 42, 0.7);
-  backdrop-filter: blur(5px);
-  display: flex; justify-content: center; align-items: center;
-  z-index: 2000;
+  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  background: rgba(15, 23, 42, 0.7); backdrop-filter: blur(5px);
+  display: flex; justify-content: center; align-items: center; z-index: 2000;
 }
+.modal-content { background: white; width: 95%; max-width: 500px; border-radius: 25px; overflow: hidden; animation: slideUp 0.3s; }
+.confirm-total { background: #f8fafc; padding: 20px; text-align: center; border-top: 2px dashed #ddd; }
 
-.modal-content {
-  background: var(--white);
-  width: 95%; max-width: 500px;
-  border-radius: 25px;
-  overflow: hidden;
-  animation: slideUp 0.3s ease-out;
-}
+.btn-pay { background: var(--primary); color: white; border: none; padding: 15px; border-radius: 10px; font-weight: bold; cursor: pointer; }
+.btn-save { background: var(--accent); color: white; border: none; padding: 12px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; }
 
-.btn-save {
-  background: var(--primary); color: white; border: none;
-  padding: 12px 25px; border-radius: 8px; font-weight: bold; cursor: pointer;
-}
+/* LOGIN */
+.login-box { max-width: 380px; margin: 80px auto; background: white; padding: 40px; border-radius: 20px; text-align: center; box-shadow: var(--shadow); }
+.login-box input { width: 100%; padding: 15px; margin: 20px 0; border-radius: 10px; border: 1px solid #ddd; text-align: center; font-size: 1.2rem; }
 
-/* =========================================
-   7. RESPONSIVE
-   ========================================= */
 @media (max-width: 600px) {
-  .top-nav { height: auto; padding: 15px; flex-direction: column; gap: 15px; }
-  .nav-links { width: 100%; justify-content: space-around; }
-  .product-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
+  .product-grid { grid-template-columns: 1fr 1fr !important; gap: 10px !important; }
 }
-
