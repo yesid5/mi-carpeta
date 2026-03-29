@@ -4,31 +4,46 @@
 :root { 
   --primary: #28a745; 
   --primary-dark: #218838;
-  --bg: #f4f7f6; 
+  --bg: #f0f2f5; 
   --white: #ffffff;
-  --border: #ddd;
+  --border: #e0e0e0;
   --blue: #007bff;
   --orange: #f39c12;
   --danger: #e74c3c;
-  --dark: #333;
+  --dark: #2c3e50;
+  --shadow: 0 4px 12px rgba(0,0,0,0.08);
 }
 
 * {
   box-sizing: border-box;
-  -webkit-tap-highlight-color: transparent; /* Quita el cuadro azul al tocar en móvil */
+  -webkit-tap-highlight-color: transparent;
 }
 
 body { 
-  font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; 
+  font-family: 'Segoe UI', system-ui, sans-serif; 
   background: var(--bg); 
   margin: 0; 
   padding: 0;
-  overscroll-behavior: none; /* Evita el rebote al hacer scroll en iOS/Android */
+  overscroll-behavior: none;
   color: var(--dark);
 }
 
 /* =========================================
-   2. ESTRUCTURA PRINCIPAL (LAYOUT)
+   2. ANIMACIONES (NUEVO)
+   ========================================= */
+@keyframes fadeInCard {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* =========================================
+   3. ESTRUCTURA PRINCIPAL (LAYOUT)
    ========================================= */
 .pos-container { 
   display: flex; 
@@ -45,347 +60,180 @@ body {
   flex-direction: column; 
 }
 
-/* SIDEBAR / CARRITO (PC) */
 .sidebar { 
   flex: 1; 
-  min-width: 320px; 
-  max-width: 400px;
+  min-width: 350px; 
+  max-width: 450px;
   background: var(--white); 
-  padding: 0; 
   border-left: 1px solid var(--border); 
   display: flex; 
   flex-direction: column; 
   z-index: 100;
-  box-shadow: -2px 0 5px rgba(0,0,0,0.02);
+  box-shadow: -4px 0 15px rgba(0,0,0,0.03);
 }
 
 /* =========================================
-   3. CABECERA Y BUSCADOR
+   4. BUSCADOR STICKY
    ========================================= */
-.pos-header { 
-  display: flex; 
-  justify-content: space-between; 
-  align-items: center; 
-  margin-bottom: 15px; 
-}
-
-.pos-header h1 { margin: 0; font-size: 1.5rem; }
-
-.header-actions { display: flex; align-items: center; gap: 10px; }
-
 .search-bar-container { 
-  display: flex; 
-  gap: 10px; 
-  margin-bottom: 20px; 
   position: sticky;
   top: 0;
   background: var(--bg);
   z-index: 10;
-  padding: 5px 0;
+  padding: 10px 0;
+  margin-bottom: 15px;
 }
 
 .search-input { 
-  flex: 1; 
-  padding: 14px; 
-  border-radius: 10px; 
-  border: 1px solid var(--border); 
+  width: 100%;
+  padding: 15px 20px; 
+  border-radius: 15px; 
+  border: 2px solid transparent; 
   font-size: 1rem; 
   outline: none;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.03);
+  box-shadow: var(--shadow);
+  transition: all 0.3s ease;
 }
 
-.search-input:focus { border-color: var(--primary); }
+.search-input:focus { 
+  border-color: var(--primary); 
+  box-shadow: 0 0 0 4px rgba(40, 167, 69, 0.1);
+}
 
 /* =========================================
-   4. BOTONES Y ACCIONES
-   ========================================= */
-.prod-img {
-    width: 100%;
-    height: 120px;
-    object-fit: cover; /* Esto hace que la imagen se recorte para llenar el espacio sin estirarse */
-    border-radius: 10px 10px 0 0;
-    background-color: #f0f0f0;
-    display: block;
-    margin-bottom: 10px;
-}
-
-.product-card {
-    cursor: pointer;
-    transition: transform 0.2s;
-    overflow: hidden; /* Importante para que la imagen no se salga de las esquinas redondeadas */
-}
-
-.product-card:active {
-    transform: scale(0.95);
-}
-
-.admin-actions {
-    display: flex;
-    justify-content: space-around;
-    padding: 10px;
-    background: #f9f9f9;
-    border-top: 1px solid #eee;
-}
-.btn-admin-access { 
-  background: #eee; 
-  border: 1px solid #ccc; 
-  padding: 8px 14px; 
-  border-radius: 8px; 
-  cursor: pointer; 
-  font-weight: bold;
-  font-size: 0.8rem; 
-}
-
-.btn-admin-access.active { background: var(--dark); color: white; border-color: var(--dark); }
-
-.management-buttons { 
-  display: flex; 
-  gap: 10px; 
-  margin-bottom: 20px; 
-  overflow-x: auto; /* Scroll horizontal si hay muchos botones */
-  padding-bottom: 8px;
-}
-
-.btn-manage { 
-  padding: 12px 20px; 
-  border: none; 
-  border-radius: 10px; 
-  color: white; 
-  font-weight: 600; 
-  cursor: pointer; 
-  white-space: nowrap;
-}
-
-.btn-green { background: var(--primary); }
-.btn-orange { background: var(--orange); }
-.btn-blue { background: var(--blue); }
-
-/* =========================================
-   5. CUADRÍCULA DE PRODUCTOS
+   5. PRODUCTOS (GRID Y CARDS CON ANIMACIÓN)
    ========================================= */
 .product-grid { 
   display: grid; 
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); 
-  gap: 15px; 
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); 
+  gap: 20px;
+  padding-bottom: 80px;
 }
 
 .product-card { 
   background: var(--white); 
-  padding: 15px; 
-  border-radius: 12px; 
-  text-align: center; 
-  cursor: pointer; 
-  box-shadow: 0 2px 8px rgba(0,0,0,0.05); 
-  transition: transform 0.1s, box-shadow 0.1s;
-  border: 2px solid transparent;
+  border-radius: 15px; 
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: var(--shadow);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  
+  /* Aplicación de la animación de entrada */
+  animation: fadeInCard 0.4s ease forwards;
 }
 
-.product-card:active { transform: scale(0.95); background: #f9f9f9; border-color: var(--primary); }
+.product-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 20px rgba(0,0,0,0.12);
+}
 
-.product-card h3 { margin: 10px 0 5px; font-size: 1rem; }
+.product-card:active {
+  transform: scale(0.96);
+}
 
-.price { color: var(--primary); font-weight: 800; font-size: 1.2rem; margin-bottom: 5px; }
+.prod-img {
+  width: 100%;
+  height: 130px;
+  object-fit: cover;
+  background: #f8f9fa;
+  border-bottom: 1px solid #eee;
+}
 
-.stock { font-size: 0.8rem; color: #777; }
-.stock.low { color: var(--danger); font-weight: bold; }
+.card-info {
+  padding: 12px;
+  text-align: center;
+}
+
+.card-info h3 { 
+  margin: 0 0 8px; 
+  font-size: 0.95rem; 
+  font-weight: 600;
+  color: var(--dark);
+}
+
+.price { 
+  color: var(--primary); 
+  font-weight: 800; 
+  font-size: 1.25rem; 
+}
 
 /* =========================================
-   6. CARRITO (SIDEBAR CONTENIDO)
+   6. CARRITO Y TOTALES
    ========================================= */
 .sidebar-header { 
   padding: 20px; 
+  background: var(--primary);
+  color: white;
   display: flex; 
   justify-content: space-between; 
   align-items: center; 
-  border-bottom: 1px solid #eee; 
 }
 
-.cart-list { flex: 1; overflow-y: auto; padding: 15px; }
+.cart-list { 
+  flex: 1; 
+  overflow-y: auto; 
+  padding: 15px; 
+}
 
 .cart-item { 
   display: flex; 
   justify-content: space-between; 
   align-items: center; 
-  padding: 12px 0; 
-  border-bottom: 1px solid #f9f9f9; 
+  padding: 12px; 
+  margin-bottom: 10px;
+  background: #f8f9fa;
+  border-radius: 10px;
+  animation: fadeInCard 0.3s ease;
 }
-
-.item-details { display: flex; gap: 10px; align-items: center; }
-.qty { background: #eee; padding: 2px 8px; border-radius: 5px; font-weight: bold; font-size: 0.8rem; }
 
 .total-section { 
   padding: 20px; 
-  background: #fafafa; 
-  border-top: 1px solid #eee; 
+  background: var(--white); 
+  border-top: 2px solid #eee; 
 }
 
-.total-display { display: flex; justify-content: space-between; margin-bottom: 15px; }
+.total-display {
+  display: flex;
+  justify-content: space-between;
+  font-size: 1.4rem;
+  font-weight: 800;
+  margin-bottom: 15px;
+}
 
 .btn-pay { 
   width: 100%; 
-  padding: 16px; 
+  padding: 18px; 
   background: var(--primary); 
   color: white; 
   border: none; 
-  border-radius: 12px; 
+  border-radius: 15px; 
   font-weight: bold; 
-  font-size: 1.1rem;
-  cursor: pointer; 
-}
-
-.btn-pay:disabled { background: #ccc; cursor: not-allowed; }
-
-/* =========================================
-   7. MODALES Y FORMULARIOS
-   ========================================= */
-.modal-overlay { 
-  position: fixed; 
-  top: 0; left: 0; 
-  width: 100%; height: 100%; 
-  background: rgba(0,0,0,0.7); 
-  display: flex; 
-  justify-content: center; 
-  align-items: center; 
-  z-index: 3000; 
-  padding: 15px;
-}
-
-.modal-content { 
-  background: white; 
-  padding: 25px; 
-  border-radius: 20px; 
-  width: 100%; 
-  max-width: 400px; 
-  box-shadow: 0 10px 40px rgba(0,0,0,0.2);
-}
-
-.input-form { 
-  width: 100%; 
-  padding: 12px; 
-  margin: 10px 0; 
-  border: 1px solid #ddd; 
-  border-radius: 10px; 
-  font-size: 1rem; 
-}
-
-.btn-close { 
-  display: block; 
-  margin: 15px auto 0; 
-  background: none; 
-  border: none; 
-  color: #888; 
-  text-decoration: underline; 
-  cursor: pointer; 
-}
-/* Contenedor principal del Modal */
-.modal-overlay {
-    position: fixed;
-    top: 0; left: 0;
-    width: 100%; height: 100%;
-    background: rgba(0, 0, 0, 0.7);
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    z-index: 2000;
-}
-
-/* Caja del formulario */
-.modal-content {
-    background: white;
-    padding: 20px;
-    border-radius: 12px;
-    width: 90%;
-    max-width: 400px;
-    box-shadow: 0 5px 15px rgba(0,0,0,0.3);
-}
-
-.modal-content h2 { margin-top: 0; color: #333; }
-
-.modal-content input {
-    width: 100%;
-    padding: 10px;
-    margin: 10px 0;
-    border: 1px solid #ccc;
-    border-radius: 5px;
-    box-sizing: border-box; /* Evita que el input se salga del borde */
-}
-
-.modal-buttons {
-    display: flex;
-    gap: 10px;
-    margin-top: 15px;
-}
-
-.btn-save { background: #28a745; color: white; border: none; padding: 10px; border-radius: 5px; flex: 1; cursor: pointer; }
-.btn-cancel { background: #dc3545; color: white; border: none; padding: 10px; border-radius: 5px; flex: 1; cursor: pointer; }
-/* =========================================
-   8. RESPONSIVE (MÓVIL) - ANIMACIÓN SLIDE
-   ========================================= */
-.btn-carrito-flotante {
-  position: fixed;
-  bottom: 25px;
-  right: 25px;
-  width: 65px;
-  height: 65px;
-  border-radius: 50%;
-  background: var(--primary);
-  color: white;
-  border: none;
-  font-size: 1.6rem;
-  box-shadow: 0 6px 20px rgba(40, 167, 69, 0.4);
-  z-index: 90;
-  display: none; /* Oculto en PC */
+  font-size: 1.2rem;
   cursor: pointer;
-  animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  box-shadow: 0 4px 10px rgba(40, 167, 69, 0.3);
 }
 
-@keyframes popIn {
-  from { transform: scale(0) rotate(-45deg); opacity: 0; }
-  to { transform: scale(1) rotate(0); opacity: 1; }
-}
-
+/* =========================================
+   7. RESPONSIVE (MÓVIL)
+   ========================================= */
 @media (max-width: 768px) {
-  .btn-carrito-flotante { display: block; }
-
   .sidebar {
     position: fixed;
-    top: 0;
-    right: 0;
-    width: 100%;
-    height: 100%;
+    top: 0; right: 0;
+    width: 100%; height: 100%;
     max-width: 100%;
-    /* Empieza fuera de la pantalla a la derecha */
     transform: translateX(100%);
-    transition: transform 0.4s cubic-bezier(0.25, 1, 0.5, 1);
-    border-left: none;
+    transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
-  .sidebar.open {
-    transform: translateX(0); /* Entra deslizándose */
-    box-shadow: -10px 0 30px rgba(0,0,0,0.1);
+  .sidebar.open { transform: translateX(0); }
+
+  .main-panel { padding: 10px; }
+  .product-grid { 
+    grid-template-columns: repeat(auto-fill, minmax(145px, 1fr)); 
+    gap: 10px; 
   }
-
-  .main-panel { padding: 15px; }
-  .product-grid { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; }
 }
-
-/* Ocultar botón de cierre en PC */
-@media (min-width: 769px) {
-  .btn-close-cart { display: none; }
-}
-
-.btn-close-cart {
-  background: var(--danger);
-  color: white;
-  border: none;
-  width: 35px;
-  height: 35px;
-  border-radius: 50%;
-  font-weight: bold;
-  cursor: pointer;
-}
-
-/* BADGES DE ESTADO */
-.status-badge { font-size: 0.6rem; padding: 3px 8px; border-radius: 10px; color: white; }
-.status-badge.online { background: var(--primary); }
-.status-badge.offline { background: var(--danger); }
