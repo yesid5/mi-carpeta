@@ -297,6 +297,60 @@ body {
   font-weight: bold;
   cursor: pointer;
 }
+/* Indicadores de Stock en las tarjetas del mostrador */
+.stock-tag {
+  font-size: 0.75rem;
+  background: #f1f5f9;
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: var(--dark);
+  font-weight: bold;
+}
+
+/* Tarjeta cuando se queda sin mercancía */
+.product-card.sin-stock {
+  opacity: 0.6;
+  border: 1px dashed var(--danger);
+  cursor: not-allowed;
+}
+
+.product-card.sin-stock:hover {
+  transform: none;
+  border-color: var(--danger);
+}
+
+/* Badges de estado en tablas de inventario */
+.badge-success {
+  background: #d1fae5;
+  color: #065f46;
+  padding: 4px 8px;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: bold;
+}
+
+.badge-danger {
+  background: #fee2e2;
+  color: #991b1b;
+  padding: 4px 8px;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: bold;
+}
+
+.btn-edit-small {
+  background: #f1f5f9;
+  border: 1px solid var(--border);
+  padding: 5px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.btn-edit-small:hover {
+  background: var(--accent);
+  color: white;
+}
 
 /* =========================================
    6. RESPONSIVO
