@@ -27,7 +27,6 @@ const POSApp = () => {
     return localProv ? JSON.parse(localProv) : [{ id: 1, nit: "1111111", nombre: "Proveedor Genérico", tel: "000" }];
   });
 
-  // Estado para capturar egresos por ajustes manuales de inventario (para el Cierre de Caja)
   const [egresosAjustesInventario, setEgresosAjustesInventario] = React.useState(() => {
     const localAjustes = localStorage.getItem("merca_ajustes_costo");
     return localAjustes ? Number(localAjustes) : 0;
@@ -55,8 +54,13 @@ const POSApp = () => {
   };
   const [formularioCompra, setFormularioCompra] = React.useState(compraVacia);
 
-  const [nuevoCliente, setNuevoCliente] = React.useState({ doc: '', nombre: '', tel: '' });
-  const [nuevoProveedor, setNuevoProveedor] = React.useState({ nit: '', nombre: '', tel: '' });
+  // Estados de carga limpios para Terceros (permiten creación o edición)
+  const clienteVacio = { id: null, doc: '', nombre: '', tel: '' };
+  const [nuevoCliente, setNuevoCliente] = React.useState(clienteVacio);
+
+  const proveedorVacio = { id: null, nit: '', nombre: '', tel: '' };
+  const [nuevoProveedor, setNuevoProveedor] = React.useState(proveedorVacio);
+  
   const [clienteSeleccionado, setClienteSeleccionado] = React.useState("1");
 
   // --- EFECTOS GUARDIANES ---
@@ -104,13 +108,12 @@ const POSApp = () => {
     setCarrito([]);
   };
 
-  // --- INVENTARIO AVANZADO CON AFECTACIÓN CONTABLE ---
+  // --- INVENTARIO AVANZADO ---
   const guardarProducto = () => {
     if (!editando.nombre || !editando.precio) return alert("⚠️ Faltan datos obligatorios (Nombre y Precio).");
     
     const cantidadUnidades = Number(editando.cantidad) || 0;
     const costoUnitarioAjuste = Number(editando.costoAjuste) || 0;
-    const impactoFinancieroTotal = cantidadUnidades * costoUnitarioAjuste;
 
     const nuevo = { 
       ...editando, 
@@ -119,12 +122,10 @@ const POSApp = () => {
       cantidad: cantidadUnidades 
     };
 
-    // Buscar si ya existía el ítem para evaluar el cambio físico real de stock
     const productoViejo = productos.find(p => p.id === editando.id);
     let diferenciaUnidades = cantidadUnidades;
     
     if (productoViejo) {
-      // Si se editó, calculamos cuántas unidades REALES entraron de más en este movimiento
       diferenciaUnidades = cantidadUnidades - productoViejo.cantidad;
     }
 
@@ -134,7 +135,6 @@ const POSApp = () => {
       setProductos([...productos, nuevo]);
     }
 
-    // SI HAY INYECCIÓN FÍSICA POSITIVA DE STOCK MANUAL, AFECTAMOS EL GASTO DE CAJA
     if (diferenciaUnidades > 0 && costoUnitarioAjuste > 0) {
       const gastoCalculado = diferenciaUnidades * costoUnitarioAjuste;
       setEgresosAjustesInventario(prev => prev + gastoCalculado);
@@ -151,19 +151,36 @@ const POSApp = () => {
     setEditando(productoVacio);
   };
 
-  // --- REGISTRO DE TERCEROS ---
+  // --- CONTROLLER: GESTIÓN DE CLIENTES (CREACIÓN Y EDICIÓN) ---
   const guardarCliente = () => {
     if (!nuevoCliente.doc || !nuevoCliente.nombre) return alert("Documento y Nombre requeridos.");
-    setClientes([...clientes, { ...nuevoCliente, id: Date.now() }]);
-    setNuevoCliente({ doc: '', nombre: '', tel: '' });
-    alert("👤 Cliente guardado con éxito.");
+    
+    if (nuevoCliente.id) {
+      // Modificar existente
+      setClientes(clientes.map(c => c.id === nuevoCliente.id ? nuevoCliente : c));
+      alert("👤 Registro de cliente actualizado.");
+    } else {
+      // Crear nuevo
+      setClientes([...clientes, { ...nuevoCliente, id: Date.now() }]);
+      alert("👤 Nuevo cliente indexado con éxito.");
+    }
+    setNuevoCliente(clienteVacio);
   };
 
+  // --- CONTROLLER: GESTIÓN DE PROVEEDORES (CREACIÓN Y EDICIÓN) ---
   const guardarProveedor = () => {
     if (!nuevoProveedor.nit || !nuevoProveedor.nombre) return alert("NIT y Razón social requeridos.");
-    setProveedores([...proveedores, { ...nuevoProveedor, id: Date.now() }]);
-    setNuevoProveedor({ nit: '', nombre: '', tel: '' });
-    alert("🏢 Proveedor guardado con éxito.");
+    
+    if (nuevoProveedor.id) {
+      // Modificar existente
+      setProveedores(proveedores.map(p => p.id === nuevoProveedor.id ? nuevoProveedor : p));
+      alert("🏢 Ficha de proveedor actualizada.");
+    } else {
+      // Crear nuevo
+      setProveedores([...proveedores, { ...nuevoProveedor, id: Date.now() }]);
+      alert("🏢 Nuevo proveedor indexado con éxito.");
+    }
+    setNuevoProveedor(proveedorVacio);
   };
 
   // --- LIQUIDACIÓN DE COMPRAS ---
@@ -226,7 +243,6 @@ const POSApp = () => {
     const ventasTotales = ventasDia.reduce((a, b) => a + b.total, 0);
     const comprasTotales = facturasCompraRegistradas.reduce((a, b) => a + b.totalFactura, 0); 
     
-    // Total egresos consolidados = Facturas de compra + Compras directas por Ajuste Manual de Inventario
     const egresosTotales = comprasTotales + egresosAjustesInventario;
     const netoEnCaja = baseCaja + ventasTotales - egresosTotales;
 
@@ -240,7 +256,6 @@ const POSApp = () => {
       };
       setHistorialCierres([...historialCierres, nuevoCierre]);
       
-      // Reinicio de los contadores operativos del turno
       setVentasDia([]); 
       setEgresosAjustesInventario(0);
       alert("🔒 Turno cerrado exitosamente. Valores base reajustados.");
@@ -251,7 +266,7 @@ const POSApp = () => {
 
   return React.createElement("div", { className: "pos-container" },
     
-    // NAV
+    // NAVEGACIÓN PRINCIPAL
     React.createElement("nav", { className: "top-nav" },
       React.createElement("div", { className: "nav-logo" }, "TIENDA JP"),
       React.createElement("div", { className: "nav-links" },
@@ -264,7 +279,7 @@ const POSApp = () => {
 
     React.createElement("main", { className: "main-panel" },
       
-      // COLUMNA VENTAS
+      // VISTA FACTURACIÓN
       seccion === "ventas" && React.createElement("div", { className: "ventas-layout" },
         React.createElement("div", { className: "productos-panel" },
           React.createElement("input", { className: "search-input", placeholder: "🔍 Buscar producto en mostrador...", onChange: e => setBusqueda(e.target.value) }),
@@ -305,27 +320,22 @@ const POSApp = () => {
         )
       ),
 
-      // SECCIÓN INVENTARIO CON ENLACE A TERCEROS
+      // VISTA INVENTARIOS
       seccion === "inventario" && React.createElement("div", { className: "admin-horizontal" },
         React.createElement("div", { className: "admin-card" },
           React.createElement("h2", null, editando.id ? "✏️ Modificar / Auditar Producto" : "➕ Carga Inicial / Ajuste Manual"),
           React.createElement("div", { className: "admin-form-grid" },
             React.createElement("div", { style: {display:'flex', flexDirection:'column', gap:'10px', width:'100%'} },
-              
               React.createElement("input", { placeholder: "Nombre del Producto", value: editando.nombre, onChange: e => setEditando({...editando, nombre: e.target.value}) }),
               React.createElement("input", { type: "number", placeholder: "Precio de Venta al Público ($)", value: editando.precio, onChange: e => setEditando({...editando, precio: e.target.value}) }),
               React.createElement("input", { type: "number", placeholder: "Cantidad Unidades Físicas", value: editando.cantidad, onChange: e => setEditando({...editando, cantidad: e.target.value}) }),
-              
               React.createElement("hr", {style:{border:'0', borderTop:'1px dashed #cbd5e1', margin:'5px 0'}}),
-              React.createElement("h4", {style:{fontSize:'0.85rem', color:'#475569', textAlign:'left', marginBottom:'2px'}}, "🔗 Justificación Contable (Loggro Style):"),
-              
+              React.createElement("h4", {style:{fontSize:'0.85rem', color:'#475569', textAlign:'left', marginBottom:'2px'}}, "🔗 Justificación Contable:"),
               React.createElement("input", { type: "number", placeholder: "Costo Unitario de Adquisición ($)", value: editando.costoAjuste, onChange: e => setEditando({...editando, costoAjuste: e.target.value}) }),
-              
               React.createElement("select", { value: editando.asociadoA, onChange: e => setEditando({...editando, asociadoA: e.target.value, terceroId: '1'}) },
                 React.createElement("option", { value: "PROVEEDOR" }, "Vincular a un Proveedor"),
                 React.createElement("option", { value: "CLIENTE" }, "Vincular a un Cliente (Devolución)")
               ),
-
               editando.asociadoA === "PROVEEDOR" ? 
                 React.createElement("select", { value: editando.terceroId, onChange: e => setEditando({...editando, terceroId: e.target.value}) },
                   proveedores.map(prov => React.createElement("option", { key: prov.id, value: prov.id }, prov.nombre))
@@ -333,7 +343,6 @@ const POSApp = () => {
                 React.createElement("select", { value: editando.terceroId, onChange: e => setEditando({...editando, terceroId: e.target.value}) },
                   clientes.map(cli => React.createElement("option", { key: cli.id, value: cli.id }, cli.nombre))
                 ),
-
               React.createElement("button", { className: "btn-save", style:{marginTop:'10px'}, onClick: guardarProducto }, "Confirmar Ajuste Físico")
             )
           )
@@ -352,42 +361,69 @@ const POSApp = () => {
         )
       ),
 
-      // MÓDULO DE TERCEROS
+      // SECCIÓN TERCEROS COMPLETAMENTE REDISEÑADA Y SEPARADA EN SECCIONES
       seccion === "terceros" && React.createElement("div", { className: "admin-horizontal" },
-        React.createElement("div", { className: "admin-card" },
-          React.createElement("h2", null, "👤 Registro de Clientes"),
-          React.createElement("div", { className: "admin-form-grid" },
+        
+        // COLUMNA IZQUIERDA: CLIENTES
+        React.createElement("div", { className: "admin-card", style: {flex: 1} },
+          React.createElement("h2", null, nuevoCliente.id ? "✏️ Editar Ficha Cliente" : "👤 Registro de Clientes"),
+          React.createElement("div", { className: "admin-form-grid", style: {marginBottom: '20px'} },
             React.createElement("input", { placeholder: "Cédula o NIT", value: nuevoCliente.doc, onChange: e => setNuevoCliente({...nuevoCliente, doc: e.target.value}) }),
             React.createElement("input", { placeholder: "Nombre Completo", value: nuevoCliente.nombre, onChange: e => setNuevoCliente({...nuevoCliente, nombre: e.target.value}) }),
             React.createElement("input", { placeholder: "Teléfono", value: nuevoCliente.tel, onChange: e => setNuevoCliente({...nuevoCliente, tel: e.target.value}) }),
-            React.createElement("button", { className: "btn-save", onClick: guardarCliente }, "Guardar Cliente")
+            React.createElement("button", { 
+              className: "btn-save", 
+              style: {background: nuevoCliente.id ? "#eab308" : "#2563eb"}, 
+              onClick: guardarCliente 
+            }, nuevoCliente.id ? "Actualizar Cliente" : "Guardar Nuevo Cliente")
+          ),
+          React.createElement("h3", { style: {textAlign: 'left', fontSize: '1rem', color: '#475569'} }, "📋 Base de Datos de Clientes"),
+          React.createElement("table", { className: "report-table" },
+            React.createElement("thead", null, React.createElement("tr", null, React.createElement("th", null, "Doc/Cc"), React.createElement("th", null, "Nombre"), React.createElement("th", null, "Acción"))),
+            React.createElement("tbody", null, clientes.map(c => React.createElement("tr", {key: c.id},
+              React.createElement("td", null, c.doc),
+              React.createElement("td", null, c.nombre),
+              React.createElement("td", null, React.createElement("button", { className: "btn-edit-small", onClick: () => setNuevoCliente(c) }, "✏️"))
+            )))
           )
         ),
-        React.createElement("div", { className: "admin-card" },
-          React.createElement("h2", null, "🏢 Registro de Proveedores"),
-          React.createElement("div", { className: "admin-form-grid" },
+
+        // COLUMNA DERECHA: PROVEEDORES
+        React.createElement("div", { className: "admin-card", style: {flex: 1} },
+          React.createElement("h2", null, nuevoProveedor.id ? "✏️ Editar Ficha Proveedor" : "🏢 Registro de Proveedores"),
+          React.createElement("div", { className: "admin-form-grid", style: {marginBottom: '20px'} },
             React.createElement("input", { placeholder: "NIT Proveedor", value: nuevoProveedor.nit, onChange: e => setNuevoProveedor({...nuevoProveedor, nit: e.target.value}) }),
             React.createElement("input", { placeholder: "Razón Social / Empresa", value: nuevoProveedor.nombre, onChange: e => setNuevoProveedor({...nuevoProveedor, nombre: e.target.value}) }),
             React.createElement("input", { placeholder: "Teléfono de Contacto", value: nuevoProveedor.tel, onChange: e => setNuevoProveedor({...nuevoProveedor, tel: e.target.value}) }),
-            React.createElement("button", { className: "btn-save", style: {background:'#10b981'}, onClick: guardarProveedor }, "Guardar Proveedor")
+            React.createElement("button", { 
+              className: "btn-save", 
+              style: {background: nuevoProveedor.id ? "#eab308" : "#10b981"}, 
+              onClick: guardarProveedor 
+            }, nuevoProveedor.id ? "Actualizar Proveedor" : "Guardar Nuevo Proveedor")
+          ),
+          React.createElement("h3", { style: {textAlign: 'left', fontSize: '1rem', color: '#475569'} }, "📋 Directorio de Proveedores"),
+          React.createElement("table", { className: "report-table" },
+            React.createElement("thead", null, React.createElement("tr", null, React.createElement("th", null, "NIT"), React.createElement("th", null, "Razón Social"), React.createElement("th", null, "Acción"))),
+            React.createElement("tbody", null, proveedores.map(p => React.createElement("tr", {key: p.id},
+              React.createElement("td", null, p.nit),
+              React.createElement("td", null, p.nombre),
+              React.createElement("td", null, React.createElement("button", { className: "btn-edit-small", onClick: () => setNuevoProveedor(p) }, "✏️"))
+            )))
           )
         )
       ),
 
-      // COMPRAS AVANZADAS E IMPUESTOS
+      // MÓDULO COMPRAS AVANZADAS E IMPUESTOS
       seccion === "admin" && React.createElement("div", { className: "admin-horizontal" },
         React.createElement("div", { className: "admin-card" },
           React.createElement("h2", null, "🧾 Factura de Compra (DIAN Colombia)"),
           React.createElement("div", { className: "admin-form-grid" },
-            
             React.createElement("select", { value: formularioCompra.proveedorId, onChange: e => setFormularioCompra({...formularioCompra, proveedorId: e.target.value}) },
               React.createElement("option", { value: "" }, "Seleccione Proveedor..."),
               proveedores.map(prov => React.createElement("option", { key: prov.id, value: prov.id }, prov.nombre))
             ),
-
             React.createElement("input", { placeholder: "Nro Factura de Compra", value: formularioCompra.nroFactura, onChange: e => setFormularioCompra({...formularioCompra, nroFactura: e.target.value}) }),
             React.createElement("input", { placeholder: "Código de Barras", value: formularioCompra.codigoBarras, onChange: e => setFormularioCompra({...formularioCompra, codigoBarras: e.target.value}) }),
-            
             React.createElement("div", { className: "autocomplete-container" },
               React.createElement("input", { 
                 placeholder: "Descripción del Producto...", value: formularioCompra.descripcion, 
@@ -399,10 +435,8 @@ const POSApp = () => {
                 productosSugeridos.map(p => React.createElement("div", { key: p.id, className: "suggestion-item", onMouseDown: () => seleccionarProductoRelacionado(p) }, p.nombre))
               )
             ),
-
             React.createElement("input", { type: "number", placeholder: "Costo Unitario Base ($)", value: formularioCompra.costoUnit, onChange: e => setFormularioCompra({...formularioCompra, costoUnit: e.target.value}) }),
             React.createElement("input", { type: "number", placeholder: "Unidades", value: formularioCompra.unidades, onChange: e => setFormularioCompra({...formularioCompra, unidades: e.target.value}) }),
-            
             React.createElement("div", { className: "tax-row" },
               React.createElement("label", null, "¿Lleva IVA? "),
               React.createElement("select", { value: formularioCompra.llevaIva, onChange: e => setFormularioCompra({...formularioCompra, llevaIva: e.target.value}) },
@@ -412,21 +446,18 @@ const POSApp = () => {
                 React.createElement("option", { value: 19 }, "19% (General)"), React.createElement("option", { value: 5 }, "5% (Diferencial)")
               )
             ),
-
             React.createElement("div", { className: "tax-row" },
               React.createElement("label", null, "¿Lleva ICO? "),
               React.createElement("select", { value: formularioCompra.llevaIco, onChange: e => setFormularioCompra({...formularioCompra, llevaIco: e.target.value}) },
                 React.createElement("option", { value: "NO" }, "No (0%)"), React.createElement("option", { value: "SI" }, "Sí (8%)")
               )
             ),
-
             React.createElement("div", { className: "tax-row" },
               React.createElement("label", null, "¿Imp. Saludable (IBUA)? "),
               React.createElement("select", { value: formularioCompra.llevaIbua, onChange: e => setFormularioCompra({...formularioCompra, llevaIbua: e.target.value}) },
                 React.createElement("option", { value: "NO" }, "No (0%)"), React.createElement("option", { value: "SI" }, "Sí (15%)")
               )
             ),
-
             React.createElement("div", { className: "loggro-summary-box" }, 
               React.createElement("p", null, `Subtotal Base: $${subtotalNeto.toLocaleString()}`),
               React.createElement("p", null, `Monto IVA: $${valorIva.toLocaleString()} | Monto ICO: $${valorIco.toLocaleString()} | Monto IBUA: $${valorIbua.toLocaleString()}`),
@@ -437,7 +468,7 @@ const POSApp = () => {
           React.createElement("button", { className: "btn-pay", style: {marginTop:'15px', background:'#2563eb'}, onClick: registrarFacturaCompra }, "📥 Grabar Entrada de Almacén")
         ),
 
-        // CUADRE Y CIERRE DE CAJA INTEGRADO CON AJUSTES MANUALES
+        // CUADRE Y CIERRE DE CAJA
         React.createElement("div", { className: "admin-card" },
           React.createElement("h2", null, "📊 Cuadre de Caja Activo"),
           React.createElement("div", { className: "metrics-grid" },
@@ -447,7 +478,6 @@ const POSApp = () => {
             React.createElement("div", { className: "metric-box" }, React.createElement("h3", null, "Egresos Ajuste Inv."), React.createElement("p", {className: "text-red"}, `$${egresosAjustesInventario.toLocaleString()}`))
           ),
           React.createElement("button", { className: "btn-pay", style: {background:'#dc2626', marginTop:'20px', width:'100%'}, onClick: ejecutarCierreCaja }, "🔒 REALIZAR CIERRE DE TURNO / ARQUEO"),
-
           React.createElement("h3", { style: {marginTop: '25px', textAlign:'left'} }, "📜 Historial de Cierres Consolidados"),
           React.createElement("table", { className: "report-table" },
             React.createElement("thead", null, React.createElement("tr", null, React.createElement("th", null, "Fecha Cierre"), React.createElement("th", null, "Vendido"), React.createElement("th", null, "Pagado"), React.createElement("th", null, "Caja Total"))),
