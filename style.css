@@ -351,6 +351,52 @@ body {
   background: var(--accent);
   color: white;
 }
+/* Contenedor relativo para posicionar las sugerencias */
+.autocomplete-container {
+  position: relative;
+  width: 100%;
+}
+
+.autocomplete-container input {
+  width: 100%;
+}
+
+/* Lista flotante de sugerencias */
+.suggestions-list {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  width: 100%;
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 8px 16px rgba(0,0,0,0.15);
+  max-height: 200px;
+  overflow-y: auto;
+  z-index: 2000; /* Asegura que flote sobre otros campos */
+  margin-top: 5px;
+}
+
+/* Cada ítem de coincidencia */
+.suggestion-item {
+  padding: 12px 15px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  border-bottom: 1px solid #f1f5f9;
+  color: var(--dark);
+  text-align: left;
+  transition: background 0.2s;
+}
+
+.suggestion-item:hover {
+  background: #f1f5f9;
+  color: var(--accent);
+  font-weight: bold;
+}
+
+.suggestion-item:last-child {
+  border-bottom: none;
+}
 
 /* =========================================
    6. RESPONSIVO
