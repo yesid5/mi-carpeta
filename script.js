@@ -1,7 +1,6 @@
 const API_URL = "https://mi-carpeta.onrender.com"; 
 
 const POSApp = () => {
-  // Estados de almacenamiento permanente en LocalStorage
   const [productos, setProductos] = React.useState(() => {
     const localProds = localStorage.getItem("merca_productos");
     return localProds ? JSON.parse(localProds) : [];
@@ -17,27 +16,29 @@ const POSApp = () => {
     return localVentas ? JSON.parse(localVentas) : [];
   });
 
-  // Estados de control de interfaces
   const [carrito, setCarrito] = React.useState([]);
   const [seccion, setSeccion] = React.useState("ventas");
   const [busqueda, setBusqueda] = React.useState("");
-  
-  // Estado para controlar si se muestran las sugerencias en compras
   const [mostrarSugerencias, setMostrarSugerencias] = React.useState(false);
   
-  const productoVacio = { nombre: '', precio: '', cantidad: 0, imagen_url: '' };
+  const productoVacio = { nombre: '', precio: '', cantidad: 0, imagen_url: '', codigoBarras: '' };
   const [editando, setEditando] = React.useState(productoVacio);
   
-  const compraVacia = { proveedor: '', nit: '', nroFactura: '', codigoBarras: '', descripcion: '', costoUnit: '', unidades: 1 };
+  // Formulario extendido con impuestos colombianos (Loggro Style)
+  const compraVacia = { 
+    proveedor: '', nit: '', nroFactura: '', codigoBarras: '', descripcion: '', 
+    costoUnit: '', unidades: 1, 
+    ivaPorcentaje: 0, // 0%, 5%, 19%
+    impuestoSaludablePorcentaje: 0 // 0% o 15% (Tarifa vigente 2026)
+  };
   const [formularioCompra, setFormularioCompra] = React.useState(compraVacia);
   const [baseCaja, setBaseCaja] = React.useState(100000); 
 
-  // Guardianes de almacenamiento
   React.useEffect(() => { localStorage.setItem("merca_productos", JSON.stringify(productos)); }, [productos]);
   React.useEffect(() => { localStorage.setItem("merca_compras", JSON.stringify(facturasCompraRegistradas)); }, [facturasCompraRegistradas]);
   React.useEffect(() => { localStorage.setItem("merca_ventas", JSON.stringify(ventasDia)); }, [ventasDia]);
 
-  // --- LÓGICA DE VENTAS ---
+  // --- VENTAS ---
   const agregarAlCarrito = (p) => {
     if (p.cantidad <= 0) return alert("⚠️ Producto sin inventario disponible.");
     const existe = carrito.find(item => item.id === p.id);
@@ -66,11 +67,11 @@ const POSApp = () => {
       fecha: new Date().toLocaleString()
     };
     setVentasDia([...ventasDia, nuevaVenta]);
-    alert("🧾 Factura de Venta Emitida y Guardada");
+    alert("🧾 Factura de Venta Emitida");
     setCarrito([]);
   };
 
-  // --- LÓGICA DE INVENTARIO ---
+  // --- INVENTARIO ---
   const manejarImagen = (e) => {
     const file = e.target.files[0];
     if (file) {
@@ -90,49 +91,68 @@ const POSApp = () => {
     };
     setProductos(editando.id ? productos.map(p => p.id === editando.id ? nuevo : p) : [...productos, nuevo]);
     setEditando(productoVacio);
-    alert("✅ Inventario modificado localmente");
+    alert("✅ Inventario actualizado");
   };
 
-  // --- ENTRADA DE MERCANCÍA CON AUTOCOMPLETAR ---
+  // --- COMPRAS AVANZADAS (LOGGRO STYLE) ---
   const seleccionarProductoRelacionado = (prod) => {
     setFormularioCompra({
       ...formularioCompra,
       descripcion: prod.nombre,
-      codigoBarras: prod.codigoBarras || '' // Autollena si tiene código asignado
+      codigoBarras: prod.codigoBarras || ''
     });
-    setMostrarSugerencias(false); // Cierra la lista
+    setMostrarSugerencias(false); 
   };
+
+  // Cálculos matemáticos de impuestos en tiempo real
+  const calcularTotalesCompra = () => {
+    const subtotalItem = Number(formularioCompra.costoUnit) * Number(formularioCompra.unidades) || 0;
+    const valorIva = subtotalItem * (Number(formularioCompra.ivaPorcentaje) / 100);
+    const valorSaludable = subtotalItem * (Number(formularioCompra.impuestoSaludablePorcentaje) / 100);
+    const totalFactura = subtotalItem + valorIva + valorSaludable;
+    
+    // Costo real por unidad incluyendo todos los impuestos acumulados
+    const costoRealUnitario = Number(formularioCompra.unidades) > 0 ? (totalFactura / Number(formularioCompra.unidades)) : 0;
+
+    return { subtotalItem, valorIva, valorSaludable, totalFactura, costoRealUnitario };
+  };
+
+  const { subtotalItem, valorIva, valorSaludable, totalFactura, costoRealUnitario } = calcularTotalesCompra();
 
   const registrarFacturaCompra = () => {
     const { proveedor, nroFactura, descripcion, costoUnit, unidades } = formularioCompra;
-    if (!proveedor || !nroFactura || !descripcion || !costoUnit) return alert("⚠️ Por favor llena los campos obligatorios (incluyendo el costo).");
-
-    const costoTotalItem = Number(costoUnit) * Number(unidades);
-    const totalConIva = costoTotalItem * 1.19;
+    if (!proveedor || !nroFactura || !descripcion || !costoUnit) return alert("⚠️ Llena los campos obligatorios.");
 
     const nuevaFacturaCompra = {
       ...formularioCompra,
       id: Date.now(),
-      totalItem: costoTotalItem,
-      totalConIva: totalConIva,
+      subtotal: subtotalItem,
+      ivaTotal: valorIva,
+      saludableTotal: valorSaludable,
+      totalConImpuestos: totalFactura,
       fecha: new Date().toLocaleString()
     };
 
     setFacturasCompraRegistradas([...facturasCompraRegistradas, nuevaFacturaCompra]);
 
-    // Buscar coincidencia exacta en inventario para inyectar stock
     const existeEnInventario = productos.find(p => p.nombre.toLowerCase().trim() === descripcion.toLowerCase().trim());
     
     if (existeEnInventario) {
       setProductos(productos.map(p => 
-        p.id === existeEnInventario.id ? { ...p, cantidad: p.cantidad + Number(unidades) } : p
+        p.id === existeEnInventario.id ? { 
+          ...p, 
+          cantidad: p.cantidad + Number(unidades),
+          codigoBarras: formularioCompra.codigoBarras || p.codigoBarras
+        } : p
       ));
     } else {
-      // Si confirmas y es nuevo, lo crea con margen básico de ganancia del 30%
+      // Precio sugerido al 30% de margen sobre el costo real con impuestos
+      const precioVentaSugerido = costoRealUnitario * 1.30;
+      
       const nuevoProductoComprado = {
         id: Date.now(),
         nombre: descripcion,
-        precio: Number(costoUnit) * 1.30, 
+        precio: Math.ceil(precioVentaSugerido / 50) * 50, // Redondeo al 50 más cercano (Moneda colombiana)
         cantidad: Number(unidades),
         imagen_url: '',
         codigoBarras: formularioCompra.codigoBarras
@@ -141,17 +161,16 @@ const POSApp = () => {
     }
 
     setFormularioCompra(compraVacia);
-    alert("✅ Compra grabada en el historial y stock inyectado.");
+    alert("✅ Compra procesada en el historial y stock cargado.");
   };
 
-  // Filtrado de productos relacionados para el buscador de compras
   const productosSugeridos = formularioCompra.descripcion 
     ? productos.filter(p => p.nombre.toLowerCase().includes(formularioCompra.descripcion.toLowerCase()))
     : [];
 
   return React.createElement("div", { className: "pos-container" },
     
-    // BARRA DE NAVEGACIÓN
+    // NAV
     React.createElement("nav", { className: "top-nav" },
       React.createElement("div", { className: "nav-logo" }, "TIENDA JP"),
       React.createElement("div", { className: "nav-links" },
@@ -163,7 +182,7 @@ const POSApp = () => {
 
     React.createElement("main", { className: "main-panel" },
       
-      // MOSTRADOR DE VENTAS
+      // VENTAS MOSTRADOR
       seccion === "ventas" && React.createElement("div", { className: "ventas-layout" },
         React.createElement("div", { className: "productos-panel" },
           React.createElement("input", { className: "search-input", placeholder: "🔍 Buscar producto en mostrador...", onChange: e => setBusqueda(e.target.value) }),
@@ -199,7 +218,7 @@ const POSApp = () => {
         )
       ),
 
-      // CONTROL DE INVENTARIO
+      // INVENTARIO
       seccion === "inventario" && React.createElement("div", { className: "admin-horizontal" },
         React.createElement("div", { className: "admin-card" },
           React.createElement("h2", null, editando.id ? "✏️ Modificar Producto" : "➕ Crear Producto Manual"),
@@ -232,22 +251,23 @@ const POSApp = () => {
         )
       ),
 
-      // SECCIÓN COMPRAS, SUGERENCIAS Y REPORTES
+      // COMPRAS AVANZADAS E IMPUESTOS COLOMBIA
       seccion === "admin" && React.createElement("div", { className: "admin-horizontal" },
         React.createElement("div", { className: "admin-card" },
-          React.createElement("h2", null, "🧾 Registro Factura de Compra Legal"),
+          React.createElement("h2", null, "🧾 Registro Factura de Entrada (Módulo Loggro)"),
           React.createElement("div", { className: "admin-form-grid" },
-            React.createElement("input", { placeholder: "Proveedor", value: formularioCompra.proveedor, onChange: e => setFormularioCompra({...formularioCompra, proveedor: e.target.value}) }),
+            React.createElement("input", { placeholder: "Proveedor / Razón Social", value: formularioCompra.proveedor, onChange: e => setFormularioCompra({...formularioCompra, proveedor: e.target.value}) }),
             React.createElement("input", { placeholder: "NIT Proveedor", value: formularioCompra.nit, onChange: e => setFormularioCompra({...formularioCompra, nit: e.target.value}) }),
             React.createElement("input", { placeholder: "Nro Factura", value: formularioCompra.nroFactura, onChange: e => setFormularioCompra({...formularioCompra, nroFactura: e.target.value}) }),
             React.createElement("input", { placeholder: "Código de Barras", value: formularioCompra.codigoBarras, onChange: e => setFormularioCompra({...formularioCompra, codigoBarras: e.target.value}) }),
             
-            // CONTENEDOR CON AUTOCOMPLETAR INTELIGENTE
+            // CONTENEDOR AUTOCOMPLETE CON CAPA SUPERIOR (Z-INDEX FIJO)
             React.createElement("div", { className: "autocomplete-container" },
               React.createElement("input", { 
-                placeholder: "Escribe la descripción o nombre...", 
+                placeholder: "Descripción del Producto...", 
                 value: formularioCompra.descripcion, 
                 onFocus: () => setMostrarSugerencias(true),
+                onBlur: () => setTimeout(() => setMostrarSugerencias(false), 200), // Cierre retrasado seguro
                 onChange: e => setFormularioCompra({...formularioCompra, descripcion: e.target.value}) 
               }),
               mostrarSugerencias && productosSugeridos.length > 0 && React.createElement("div", { className: "suggestions-list" },
@@ -255,38 +275,70 @@ const POSApp = () => {
                   React.createElement("div", { 
                     key: p.id, 
                     className: "suggestion-item",
-                    onClick: () => seleccionarProductoRelacionado(p)
-                  }, `${p.nombre} (Stock actual: ${p.cantidad})`)
+                    onMouseDown: () => seleccionarProductoRelacionado(p) // Evita conflicto de desenfoque
+                  }, `${p.nombre} (Dispo: ${p.cantidad})`)
                 )
               )
             ),
 
-            React.createElement("input", { type: "number", placeholder: "Costo Unitario ($)", value: formularioCompra.costoUnit, onChange: e => setFormularioCompra({...formularioCompra, costoUnit: e.target.value}) }),
-            React.createElement("input", { type: "number", placeholder: "Unidades Entrantes", value: formularioCompra.unidades, onChange: e => setFormularioCompra({...formularioCompra, unidades: e.target.value}) }),
+            React.createElement("input", { type: "number", placeholder: "Costo Unitario Antes de IVA ($)", value: formularioCompra.costoUnit, onChange: e => setFormularioCompra({...formularioCompra, costoUnit: e.target.value}) }),
+            React.createElement("input", { type: "number", placeholder: "Cantidad Unidades", value: formularioCompra.unidades, onChange: e => setFormularioCompra({...formularioCompra, unidades: e.target.value}) }),
             
-            React.createElement("div", { className: "total-badge" }, 
-              `SUBTOTAL: $${(Number(formularioCompra.costoUnit) * Number(formularioCompra.unidades)).toLocaleString()} | TOTAL (+ IVA 19%): $${((Number(formularioCompra.costoUnit) * Number(formularioCompra.unidades)) * 1.19).toLocaleString()}`
+            // SELECTOR DE IVA DIAN COLOMBIA
+            React.createElement("div", { className: "tax-select-container" },
+              React.createElement("label", null, "IVA Aplicable:"),
+              React.createElement("select", { 
+                value: formularioCompra.ivaPorcentaje, 
+                onChange: e => setFormularioCompra({...formularioCompra, ivaPorcentaje: Number(e.target.value)}) 
+              },
+                React.createElement("option", { value: 0 }, "Exento / Excluido (0%)"),
+                React.createElement("option", { value: 5 }, "Tarifa Diferencial (5%)"),
+                React.createElement("option", { value: 19 }, "Tarifa General (19%)")
+              )
+            ),
+
+            // IMPUESTO SALUDABLE COLOMBIA
+            React.createElement("div", { className: "tax-select-container" },
+              React.createElement("label", null, "Impuesto Saludable:"),
+              React.createElement("select", { 
+                value: formularioCompra.impuestoSaludablePorcentaje, 
+                onChange: e => setFormularioCompra({...formularioCompra, impuestoSaludablePorcentaje: Number(e.target.value)}) 
+              },
+                React.createElement("option", { value: 0 }, "No aplica (0%)"),
+                React.createElement("option", { value: 15 }, "Ultraprocesados / Azucarados (15%)")
+              )
+            ),
+            
+            // DESGLOSE DINÁMICO TIPO AUDITORÍA LOGGRO
+            React.createElement("div", { className: "loggro-summary-box" }, 
+              React.createElement("p", null, `Subtotal Neto: $${subtotalItem.toLocaleString()}`),
+              React.createElement("p", null, `IVA discriminado: $${valorIva.toLocaleString()}`),
+              React.createElement("p", null, `Imp. Saludable: $${valorSaludable.toLocaleString()}`),
+              React.createElement("h4", null, `TOTAL FACTURA ENTRADA: $${totalFactura.toLocaleString()}`),
+              React.createElement("h4", { style: {color: '#2563eb', marginTop: '5px'} }, `Costo Real con Impuesto por Unidad: $${Math.round(costoRealUnitario).toLocaleString()}`)
             )
           ),
-          React.createElement("button", { className: "btn-pay", style: {marginTop:'15px', background: '#3498db'}, onClick: registrarFacturaCompra }, "📥 Procesar Factura de Entrada")
+          React.createElement("button", { className: "btn-pay", style: {marginTop:'15px', background: '#2563eb'}, onClick: registrarFacturaCompra }, "📥 Radicar e Inyectar a Inventario")
         ),
 
-        // HISTORIALES Y CIERRES CONSTANTES
+        // HISTORIAL
         React.createElement("div", { className: "admin-card" },
-          React.createElement("h2", null, "📜 Historial de Facturas de Compra Recibidas"),
+          React.createElement("h2", null, "📜 Historial Completo de Compras y Costos"),
           React.createElement("table", { className: "report-table" },
-            React.createElement("thead", null, React.createElement("tr", null, React.createElement("th", null, "Fecha"), React.createElement("th", null, "Proveedor"), React.createElement("th", null, "Factura Nro"), React.createElement("th", null, "Producto"), React.createElement("th", null, "Cant"), React.createElement("th", null, "Total + IVA"))),
+            React.createElement("thead", null, React.createElement("tr", null, React.createElement("th", null, "Fecha"), React.createElement("th", null, "Proveedor"), React.createElement("th", null, "Producto"), React.createElement("th", null, "Cant"), React.createElement("th", null, "IVA"), React.createElement("th", null, "Saludable"), React.createElement("th", null, "Total Costo"))),
             React.createElement("tbody", null, facturasCompraRegistradas.map(f => React.createElement("tr", {key: f.id},
               React.createElement("td", null, f.fecha),
               React.createElement("td", null, f.proveedor),
-              React.createElement("td", null, f.nroFactura),
               React.createElement("td", null, f.descripcion),
               React.createElement("td", null, f.unidades),
-              React.createElement("td", {className:"text-red"}, `$${f.totalConIva.toLocaleString()}`)
+              React.createElement("td", null, `${f.ivaPorcentaje}%`),
+              React.createElement("td", null, `${f.impuestoSaludablePorcentaje}%`),
+              React.createElement("td", {className:"text-red"}, `$${f.totalConImpuestos.toLocaleString()}`)
             )))
           )
         ),
 
+        // CAJA
         React.createElement("div", { className: "admin-card" },
           React.createElement("h2", null, "📊 Cuadre y Cierre de Caja"),
           React.createElement("div", { className: "metrics-grid" },
