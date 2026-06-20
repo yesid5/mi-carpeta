@@ -397,6 +397,77 @@ body {
 .suggestion-item:last-child {
   border-bottom: none;
 }
+/* Layout adaptativo de doble columna para Mostrador */
+.ventas-layout {
+  display: grid;
+  grid-template-columns: 1fr 400px; /* Columna izquierda adaptable, columna derecha fija */
+  gap: 20px;
+  align-items: start;
+}
+
+/* CARRO DE COMPRAS FIJO (Evita que se pierda al hacer scroll) */
+.factura-panel-sticky {
+  background: white;
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 120px); /* Ocupa el alto justo de la pantalla libre */
+  position: sticky;
+  top: 100px; /* Se queda clavado al bajar la página */
+  overflow: hidden;
+}
+
+/* Zona interna de ítems escaneados con scroll independiente */
+.factura-items {
+  flex: 1;
+  overflow-y: auto;
+  margin: 15px 0;
+  padding-right: 5px;
+  border-bottom: 1px dashed #e2e8f0;
+}
+
+/* Filas organizadas para impuestos colombianos */
+.tax-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #f8fafc;
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: 1px solid #e2e8f0;
+  text-align: left;
+}
+
+.tax-row label {
+  font-size: 0.85rem;
+  font-weight: bold;
+  color: #334155;
+  flex: 1;
+}
+
+.tax-row select {
+  padding: 5px;
+  border-radius: 4px;
+  border: 1px solid #cbd5e1;
+}
+
+/* Colores de Alerta Contable */
+.text-green { color: #16a34a !important; font-weight: bold; }
+.text-red { color: #dc2626 !important; font-weight: bold; }
+
+@media (max-width: 992px) {
+  .ventas-layout {
+    grid-template-columns: 1fr; /* En pantallas pequeñas se apila normalmente */
+  }
+  .factura-panel-sticky {
+    position: relative;
+    top: 0;
+    max-height: none;
+  }
+}
 
 /* =========================================
    6. RESPONSIVO
