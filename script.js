@@ -27,6 +27,12 @@ const POSApp = () => {
     return localProv ? JSON.parse(localProv) : [{ id: 1, nit: "1111111", nombre: "Proveedor Genérico", tel: "000" }];
   });
 
+  // Estado para capturar egresos por ajustes manuales de inventario (para el Cierre de Caja)
+  const [egresosAjustesInventario, setEgresosAjustesInventario] = React.useState(() => {
+    const localAjustes = localStorage.getItem("merca_ajustes_costo");
+    return localAjustes ? Number(localAjustes) : 0;
+  });
+
   // --- ESTADOS DE CONTROL ---
   const [carrito, setCarrito] = React.useState([]);
   const [seccion, setSeccion] = React.useState("ventas");
@@ -39,7 +45,7 @@ const POSApp = () => {
   });
 
   // --- FORMULARIOS ---
-  const productoVacio = { nombre: '', precio: '', cantidad: 0, imagen_url: '', codigoBarras: '' };
+  const productoVacio = { nombre: '', precio: '', costoAjuste: '', cantidad: 0, imagen_url: '', codigoBarras: '', asociadoA: 'PROVEEDOR', terceroId: '1' };
   const [editando, setEditando] = React.useState(productoVacio);
 
   const compraVacia = { 
@@ -60,6 +66,7 @@ const POSApp = () => {
   React.useEffect(() => { localStorage.setItem("merca_clientes", JSON.stringify(clientes)); }, [clientes]);
   React.useEffect(() => { localStorage.setItem("merca_proveedores", JSON.stringify(proveedores)); }, [proveedores]);
   React.useEffect(() => { localStorage.setItem("merca_cierres", JSON.stringify(historialCierres)); }, [historialCierres]);
+  React.useEffect(() => { localStorage.setItem("merca_ajustes_costo", egresosAjustesInventario.toString()); }, [egresosAjustesInventario]);
 
   // --- PROCESO DE VENTAS ---
   const agregarAlCarrito = (p) => {
@@ -97,6 +104,53 @@ const POSApp = () => {
     setCarrito([]);
   };
 
+  // --- INVENTARIO AVANZADO CON AFECTACIÓN CONTABLE ---
+  const guardarProducto = () => {
+    if (!editando.nombre || !editando.precio) return alert("⚠️ Faltan datos obligatorios (Nombre y Precio).");
+    
+    const cantidadUnidades = Number(editando.cantidad) || 0;
+    const costoUnitarioAjuste = Number(editando.costoAjuste) || 0;
+    const impactoFinancieroTotal = cantidadUnidades * costoUnitarioAjuste;
+
+    const nuevo = { 
+      ...editando, 
+      id: editando.id || Date.now(), 
+      precio: Number(editando.precio),
+      cantidad: cantidadUnidades 
+    };
+
+    // Buscar si ya existía el ítem para evaluar el cambio físico real de stock
+    const productoViejo = productos.find(p => p.id === editando.id);
+    let diferenciaUnidades = cantidadUnidades;
+    
+    if (productoViejo) {
+      // Si se editó, calculamos cuántas unidades REALES entraron de más en este movimiento
+      diferenciaUnidades = cantidadUnidades - productoViejo.cantidad;
+    }
+
+    if (editando.id) {
+      setProductos(productos.map(p => p.id === editando.id ? nuevo : p));
+    } else {
+      setProductos([...productos, nuevo]);
+    }
+
+    // SI HAY INYECCIÓN FÍSICA POSITIVA DE STOCK MANUAL, AFECTAMOS EL GASTO DE CAJA
+    if (diferenciaUnidades > 0 && costoUnitarioAjuste > 0) {
+      const gastoCalculado = diferenciaUnidades * costoUnitarioAjuste;
+      setEgresosAjustesInventario(prev => prev + gastoCalculado);
+      
+      const nombreTercero = editando.asociadoA === "PROVEEDOR" 
+        ? (proveedores.find(p => p.id.toString() === editando.terceroId.toString())?.nombre || "Proveedor")
+        : (clientes.find(c => c.id.toString() === editando.terceroId.toString())?.nombre || "Cliente");
+
+      alert(`📦 Ajuste contable aplicado:\nSe indexaron ${diferenciaUnidades} unidades asociadas a [${nombreTercero}].\nValor cargado a egresos de caja: $${gastoCalculado.toLocaleString()}`);
+    } else {
+      alert("✅ Inventario modificado de forma local.");
+    }
+    
+    setEditando(productoVacio);
+  };
+
   // --- REGISTRO DE TERCEROS ---
   const guardarCliente = () => {
     if (!nuevoCliente.doc || !nuevoCliente.nombre) return alert("Documento y Nombre requeridos.");
@@ -112,10 +166,9 @@ const POSApp = () => {
     alert("🏢 Proveedor guardado con éxito.");
   };
 
-  // --- LIQUIDACIÓN DE COMPRAS E IMPUESTOS ---
+  // --- LIQUIDACIÓN DE COMPRAS ---
   const calcularTotalesCompra = () => {
     const subtotalNeto = (Number(formularioCompra.costoUnit) * Number(formularioCompra.unidades)) || 0;
-    
     const valorIva = formularioCompra.llevaIva === "SI" ? subtotalNeto * (Number(formularioCompra.ivaPorcentaje) / 100) : 0;
     const valorIco = formularioCompra.llevaIco === "SI" ? subtotalNeto * (Number(formularioCompra.icoPorcentaje) / 100) : 0;
     const valorIbua = formularioCompra.llevaIbua === "SI" ? subtotalNeto * (Number(formularioCompra.ibuaPorcentaje) / 100) : 0;
@@ -168,23 +221,29 @@ const POSApp = () => {
     alert("📥 Compra radicada y existencias sumadas.");
   };
 
-  // --- ARQUEO Y CIERRE DE CAJA ---
+  // --- ARQUEO Y CIERRE DE CAJA OPERATIVO ---
   const ejecutarCierreCaja = () => {
     const ventasTotales = ventasDia.reduce((a, b) => a + b.total, 0);
-    const comprasTotales = facturasCompraRegistradas.reduce((a, b) => a + b.totalFactura, 0); // Lo que se pagó a proveedores
-    const netoEnCaja = baseCaja + ventasTotales - comprasTotales;
+    const comprasTotales = facturasCompraRegistradas.reduce((a, b) => a + b.totalFactura, 0); 
+    
+    // Total egresos consolidados = Facturas de compra + Compras directas por Ajuste Manual de Inventario
+    const egresosTotales = comprasTotales + egresosAjustesInventario;
+    const netoEnCaja = baseCaja + ventasTotales - egresosTotales;
 
-    if (confirm(`¿Estás seguro de realizar el cierre de caja?\n\nTotal Vendido: $${ventasTotales.toLocaleString()}\nTotal Pagado (Compras): $${comprasTotales.toLocaleString()}\nEfectivo Neto Esperado: $${netoEnCaja.toLocaleString()}`)) {
+    if (confirm(`¿Proceder con el Cierre de Caja definitivo?\n\n(+) Ingreso Ventas: $${ventasTotales.toLocaleString()}\n(-) Egreso Facturas Compra: $${comprasTotales.toLocaleString()}\n(-) Egreso Ajustes Inventario: $${egresosAjustesInventario.toLocaleString()}\n(=) Efectivo Líquido Esperado: $${netoEnCaja.toLocaleString()}`)) {
       const nuevoCierre = {
         id: Date.now(),
         fecha: new Date().toLocaleString(),
         vendido: ventasTotales,
-        pagado: comprasTotales,
+        pagado: egresosTotales,
         totalCaja: netoEnCaja
       };
       setHistorialCierres([...historialCierres, nuevoCierre]);
-      setVentasDia([]); // Se limpia el turno de ventas
-      alert("🔒 Caja Cerrada. El turno ha sido reiniciado a cero.");
+      
+      // Reinicio de los contadores operativos del turno
+      setVentasDia([]); 
+      setEgresosAjustesInventario(0);
+      alert("🔒 Turno cerrado exitosamente. Valores base reajustados.");
     }
   };
 
@@ -192,7 +251,7 @@ const POSApp = () => {
 
   return React.createElement("div", { className: "pos-container" },
     
-    // NAVEGACIÓN
+    // NAV
     React.createElement("nav", { className: "top-nav" },
       React.createElement("div", { className: "nav-logo" }, "TIENDA JP"),
       React.createElement("div", { className: "nav-links" },
@@ -205,14 +264,14 @@ const POSApp = () => {
 
     React.createElement("main", { className: "main-panel" },
       
-      // SECCIÓN MOSTRADOR (CON FACTURA FIJA EN CSS)
+      // COLUMNA VENTAS
       seccion === "ventas" && React.createElement("div", { className: "ventas-layout" },
         React.createElement("div", { className: "productos-panel" },
           React.createElement("input", { className: "search-input", placeholder: "🔍 Buscar producto en mostrador...", onChange: e => setBusqueda(e.target.value) }),
           React.createElement("div", { className: "product-grid" },
             productos.filter(p => p.nombre.toLowerCase().includes(busqueda.toLowerCase())).map(p => 
               React.createElement("div", { key: p.id, className: p.cantidad <= 0 ? "product-card sin-stock" : "product-card", onClick: () => agregarAlCarrito(p) },
-                React.createElement("img", { src: p.imagen_url || 'https://img.icons8.com/fluency/100/box.png' }),
+                React.createElement("img", { src: p.imagen_url || 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=120' }),
                 React.createElement("h3", null, p.nombre),
                 React.createElement("div", { style: {display:'flex', justifyContent:'space-between', marginTop:'5px'} },
                   React.createElement("span", { className: "price" }, `$${p.precio.toLocaleString()}`),
@@ -223,7 +282,6 @@ const POSApp = () => {
           )
         ),
         
-        // PANEL DE FACTURACIÓN (STICKY EN PANTALLA)
         React.createElement("div", { className: "factura-panel-sticky" },
           React.createElement("div", { className: "factura-header" },
             React.createElement("h2", null, "FACTURA DE VENTA"),
@@ -247,29 +305,54 @@ const POSApp = () => {
         )
       ),
 
-      // SECCIÓN INVENTARIO
+      // SECCIÓN INVENTARIO CON ENLACE A TERCEROS
       seccion === "inventario" && React.createElement("div", { className: "admin-horizontal" },
         React.createElement("div", { className: "admin-card" },
-          React.createElement("h2", null, "➕ Agregar/Editar Producto"),
+          React.createElement("h2", null, editando.id ? "✏️ Modificar / Auditar Producto" : "➕ Carga Inicial / Ajuste Manual"),
           React.createElement("div", { className: "admin-form-grid" },
-            React.createElement("input", { placeholder: "Nombre del Producto", value: editando.nombre, onChange: e => setEditando({...editando, nombre: e.target.value}) }),
-            React.createElement("input", { type: "number", placeholder: "Precio de Venta", value: editando.precio, onChange: e => setEditando({...editando, precio: e.target.value}) }),
-            React.createElement("input", { type: "number", placeholder: "Stock Inicial", value: editando.cantidad, onChange: e => setEditando({...editando, cantidad: e.target.value}) }),
-            React.createElement("button", { className: "btn-save", onClick: guardarProducto }, "Confirmar Ítem")
+            React.createElement("div", { style: {display:'flex', flexDirection:'column', gap:'10px', width:'100%'} },
+              
+              React.createElement("input", { placeholder: "Nombre del Producto", value: editando.nombre, onChange: e => setEditando({...editando, nombre: e.target.value}) }),
+              React.createElement("input", { type: "number", placeholder: "Precio de Venta al Público ($)", value: editando.precio, onChange: e => setEditando({...editando, precio: e.target.value}) }),
+              React.createElement("input", { type: "number", placeholder: "Cantidad Unidades Físicas", value: editando.cantidad, onChange: e => setEditando({...editando, cantidad: e.target.value}) }),
+              
+              React.createElement("hr", {style:{border:'0', borderTop:'1px dashed #cbd5e1', margin:'5px 0'}}),
+              React.createElement("h4", {style:{fontSize:'0.85rem', color:'#475569', textAlign:'left', marginBottom:'2px'}}, "🔗 Justificación Contable (Loggro Style):"),
+              
+              React.createElement("input", { type: "number", placeholder: "Costo Unitario de Adquisición ($)", value: editando.costoAjuste, onChange: e => setEditando({...editando, costoAjuste: e.target.value}) }),
+              
+              React.createElement("select", { value: editando.asociadoA, onChange: e => setEditando({...editando, asociadoA: e.target.value, terceroId: '1'}) },
+                React.createElement("option", { value: "PROVEEDOR" }, "Vincular a un Proveedor"),
+                React.createElement("option", { value: "CLIENTE" }, "Vincular a un Cliente (Devolución)")
+              ),
+
+              editando.asociadoA === "PROVEEDOR" ? 
+                React.createElement("select", { value: editando.terceroId, onChange: e => setEditando({...editando, terceroId: e.target.value}) },
+                  proveedores.map(prov => React.createElement("option", { key: prov.id, value: prov.id }, prov.nombre))
+                ) :
+                React.createElement("select", { value: editando.terceroId, onChange: e => setEditando({...editando, terceroId: e.target.value}) },
+                  clientes.map(cli => React.createElement("option", { key: cli.id, value: cli.id }, cli.nombre))
+                ),
+
+              React.createElement("button", { className: "btn-save", style:{marginTop:'10px'}, onClick: guardarProducto }, "Confirmar Ajuste Físico")
+            )
           )
         ),
         React.createElement("div", { className: "admin-card" },
-          React.createElement("h2", null, "📦 Inventario de Stock"),
+          React.createElement("h2", null, "📦 Inventario de Stock Activo"),
           React.createElement("table", { className: "report-table" },
-            React.createElement("thead", null, React.createElement("tr", null, React.createElement("th", null, "Producto"), React.createElement("th", null, "Precio"), React.createElement("th", null, "Stock"))),
+            React.createElement("thead", null, React.createElement("tr", null, React.createElement("th", null, "Producto"), React.createElement("th", null, "Precio Venta"), React.createElement("th", null, "Stock"), React.createElement("th", null, "Acción"))),
             React.createElement("tbody", null, productos.map(p => React.createElement("tr", {key: p.id},
-              React.createElement("td", null, p.nombre), React.createElement("td", null, `$${p.precio.toLocaleString()}`), React.createElement("td", null, p.cantidad)
+              React.createElement("td", null, p.nombre), 
+              React.createElement("td", null, `$${p.precio.toLocaleString()}`), 
+              React.createElement("td", {style:{fontWeight:'bold'}}, p.cantidad),
+              React.createElement("td", null, React.createElement("button", { className: "btn-edit-small", onClick: () => setEditando({...p, costoAjuste: '', asociadoA: 'PROVEEDOR', terceroId: '1'}) }, "✏️"))
             )))
           )
         )
       ),
 
-      // MÓDULO DE TERCEROS (CLIENTES Y PROVEEDORES)
+      // MÓDULO DE TERCEROS
       seccion === "terceros" && React.createElement("div", { className: "admin-horizontal" },
         React.createElement("div", { className: "admin-card" },
           React.createElement("h2", null, "👤 Registro de Clientes"),
@@ -291,13 +374,12 @@ const POSApp = () => {
         )
       ),
 
-      // COMPRAS AVANZADAS E IMPUESTOS COMPLETO (IVA, ICO, IBUA)
+      // COMPRAS AVANZADAS E IMPUESTOS
       seccion === "admin" && React.createElement("div", { className: "admin-horizontal" },
         React.createElement("div", { className: "admin-card" },
           React.createElement("h2", null, "🧾 Factura de Compra (DIAN Colombia)"),
           React.createElement("div", { className: "admin-form-grid" },
             
-            // Selector de proveedor precargado
             React.createElement("select", { value: formularioCompra.proveedorId, onChange: e => setFormularioCompra({...formularioCompra, proveedorId: e.target.value}) },
               React.createElement("option", { value: "" }, "Seleccione Proveedor..."),
               proveedores.map(prov => React.createElement("option", { key: prov.id, value: prov.id }, prov.nombre))
@@ -321,7 +403,6 @@ const POSApp = () => {
             React.createElement("input", { type: "number", placeholder: "Costo Unitario Base ($)", value: formularioCompra.costoUnit, onChange: e => setFormularioCompra({...formularioCompra, costoUnit: e.target.value}) }),
             React.createElement("input", { type: "number", placeholder: "Unidades", value: formularioCompra.unidades, onChange: e => setFormularioCompra({...formularioCompra, unidades: e.target.value}) }),
             
-            // FILAS DE PARAMETRIZACIÓN TRIBUTARIA COLOMBIANA
             React.createElement("div", { className: "tax-row" },
               React.createElement("label", null, "¿Lleva IVA? "),
               React.createElement("select", { value: formularioCompra.llevaIva, onChange: e => setFormularioCompra({...formularioCompra, llevaIva: e.target.value}) },
@@ -342,7 +423,7 @@ const POSApp = () => {
             React.createElement("div", { className: "tax-row" },
               React.createElement("label", null, "¿Imp. Saludable (IBUA)? "),
               React.createElement("select", { value: formularioCompra.llevaIbua, onChange: e => setFormularioCompra({...formularioCompra, llevaIbua: e.target.value}) },
-                React.createElement("option", { value: "NO" }, "No (0%)"), React.createElement("option", { value: "SI" }, "Sí (15% Alimentos/Bebidas)")
+                React.createElement("option", { value: "NO" }, "No (0%)"), React.createElement("option", { value: "SI" }, "Sí (15%)")
               )
             ),
 
@@ -356,13 +437,14 @@ const POSApp = () => {
           React.createElement("button", { className: "btn-pay", style: {marginTop:'15px', background:'#2563eb'}, onClick: registrarFacturaCompra }, "📥 Grabar Entrada de Almacén")
         ),
 
-        // CUADRE Y CIERRE DE CAJA OPERATIVO
+        // CUADRE Y CIERRE DE CAJA INTEGRADO CON AJUSTES MANUALES
         React.createElement("div", { className: "admin-card" },
           React.createElement("h2", null, "📊 Cuadre de Caja Activo"),
           React.createElement("div", { className: "metrics-grid" },
             React.createElement("div", { className: "metric-box" }, React.createElement("h3", null, "Base Fija"), React.createElement("p", null, `$${baseCaja.toLocaleString()}`)),
             React.createElement("div", { className: "metric-box" }, React.createElement("h3", null, "Vendido (Ingreso)"), React.createElement("p", {className: "text-green"}, `$${ventasDia.reduce((a,b)=>a+b.total,0).toLocaleString()}`)),
-            React.createElement("div", { className: "metric-box" }, React.createElement("h3", null, "Pagado (Egreso Compras)"), React.createElement("p", {className: "text-red"}, `$${facturasCompraRegistradas.reduce((a,b)=>a+b.totalFactura,0).toLocaleString()}`))
+            React.createElement("div", { className: "metric-box" }, React.createElement("h3", null, "Egresos Facturas"), React.createElement("p", {className: "text-red"}, `$${facturasCompraRegistradas.reduce((a,b)=>a+b.totalFactura,0).toLocaleString()}`)),
+            React.createElement("div", { className: "metric-box" }, React.createElement("h3", null, "Egresos Ajuste Inv."), React.createElement("p", {className: "text-red"}, `$${egresosAjustesInventario.toLocaleString()}`))
           ),
           React.createElement("button", { className: "btn-pay", style: {background:'#dc2626', marginTop:'20px', width:'100%'}, onClick: ejecutarCierreCaja }, "🔒 REALIZAR CIERRE DE TURNO / ARQUEO"),
 
