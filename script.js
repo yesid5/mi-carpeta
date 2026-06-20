@@ -1,7 +1,7 @@
 const API_URL = "https://mi-carpeta.onrender.com"; 
 
 const POSApp = () => {
-  // --- INTENTAR CARGAR DATOS RESPALDADOS DESDE LOCALSTORAGE AL INICIAR ---
+  // Se mantienen las llaves de localStorage anteriores para NO borrar tu inventario actual
   const [productos, setProductos] = React.useState(() => {
     const localProds = localStorage.getItem("merca_productos");
     return localProds ? JSON.parse(localProds) : [];
@@ -17,7 +17,6 @@ const POSApp = () => {
     return localVentas ? JSON.parse(localVentas) : [];
   });
 
-  // Estados de control de flujo
   const [carrito, setCarrito] = React.useState([]);
   const [seccion, setSeccion] = React.useState("ventas");
   const [busqueda, setBusqueda] = React.useState("");
@@ -29,7 +28,6 @@ const POSApp = () => {
   const [formularioCompra, setFormularioCompra] = React.useState(compraVacia);
   const [baseCaja, setBaseCaja] = React.useState(100000); 
 
-  // --- GUARDIANES (useEffect): GUARDAN EN DISCO CADA VEZ QUE ALGO CAMBIA ---
   React.useEffect(() => {
     localStorage.setItem("merca_productos", JSON.stringify(productos));
   }, [productos]);
@@ -42,7 +40,6 @@ const POSApp = () => {
     localStorage.setItem("merca_ventas", JSON.stringify(ventasDia));
   }, [ventasDia]);
 
-  // Sincronización inicial opcional con API externa
   const cargarDatosDesdeServidor = async () => {
     try {
       const res = await fetch(`${API_URL}/productos`);
@@ -56,11 +53,9 @@ const POSApp = () => {
   };
 
   React.useEffect(() => { 
-    // Si tienes datos locales, los respeta; si está vacío, intenta buscar del servidor
     if (productos.length === 0) cargarDatosDesdeServidor(); 
   }, []);
 
-  // --- LÓGICA DE VENTAS ---
   const agregarAlCarrito = (p) => {
     if (p.cantidad <= 0) return alert("⚠️ Producto sin inventario disponible.");
     
@@ -95,7 +90,6 @@ const POSApp = () => {
     setCarrito([]);
   };
 
-  // --- LÓGICA DE INVENTARIO ---
   const manejarImagen = (e) => {
     const file = e.target.files[0];
     if (file) {
@@ -112,6 +106,7 @@ const POSApp = () => {
       ...editando, 
       id: editando.id || Date.now(), 
       precio: Number(editando.precio),
+      text: undefined,
       cantidad: Number(editando.cantidad) || 0 
     };
     
@@ -120,7 +115,6 @@ const POSApp = () => {
     alert("✅ Cambios retenidos en la base de datos local");
   };
 
-  // --- ENTRADA DE MERCANCÍA ---
   const registrarFacturaCompra = () => {
     const { proveedor, nroFactura, descripcion, costoUnit, unidades } = formularioCompra;
     if (!proveedor || !nroFactura || !descripcion) return alert("Por favor llena los campos clave.");
@@ -161,9 +155,9 @@ const POSApp = () => {
 
   return React.createElement("div", { className: "pos-container" },
     
-    // NAV
+    // NAV (Nombre Cambiado a TIENDA JP)
     React.createElement("nav", { className: "top-nav" },
-      React.createElement("div", { className: "nav-logo" }, "MERCAEXPRESS 33"),
+      React.createElement("div", { className: "nav-logo" }, "TIENDA JP"),
       React.createElement("div", { className: "nav-links" },
         React.createElement("button", { onClick: () => setSeccion("ventas"), className: seccion === "ventas" ? "active" : "" }, "🧾 Facturación"),
         React.createElement("button", { onClick: () => setSeccion("inventario"), className: seccion === "inventario" ? "active" : "" }, "📦 Inventario y Stock"),
@@ -193,7 +187,7 @@ const POSApp = () => {
         React.createElement("div", { className: "factura-panel" },
           React.createElement("div", { className: "factura-header" },
             React.createElement("h2", null, "FACTURA DE VENTA"),
-            React.createElement("p", null, "MERCAEXPRESS 33 - NIT: 900.123.456-1"),
+            React.createElement("p", null, "TIENDA JP - NIT: 900.123.456-1"),
             React.createElement("p", null, "Bogotá, Colombia")
           ),
           React.createElement("div", { className: "factura-items" },
