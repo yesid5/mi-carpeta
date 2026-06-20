@@ -1,47 +1,72 @@
 const API_URL = "https://mi-carpeta.onrender.com"; 
 
 const POSApp = () => {
-  // Estados Principales
-  const [productos, setProductos] = React.useState([]);
+  // --- INTENTAR CARGAR DATOS RESPALDADOS DESDE LOCALSTORAGE AL INICIAR ---
+  const [productos, setProductos] = React.useState(() => {
+    const localProds = localStorage.getItem("merca_productos");
+    return localProds ? JSON.parse(localProds) : [];
+  });
+
+  const [facturasCompraRegistradas, setFacturasCompraRegistradas] = React.useState(() => {
+    const localCompras = localStorage.getItem("merca_compras");
+    return localCompras ? JSON.parse(localCompras) : [];
+  });
+
+  const [ventasDia, setVentasDia] = React.useState(() => {
+    const localVentas = localStorage.getItem("merca_ventas");
+    return localVentas ? JSON.parse(localVentas) : [];
+  });
+
+  // Estados de control de flujo
   const [carrito, setCarrito] = React.useState([]);
   const [seccion, setSeccion] = React.useState("ventas");
   const [busqueda, setBusqueda] = React.useState("");
   
-  // Estado para Limpieza Correcta de Formulario (Punto 1)
   const productoVacio = { nombre: '', precio: '', cantidad: 0, imagen_url: '' };
   const [editando, setEditando] = React.useState(productoVacio);
   
-  // Formulario de Compra Legal Ampliado (Punto 2 y 3)
-  const compraVacia = { 
-    proveedor: '', nit: '', nroFactura: '', codigoBarras: '', descripcion: '', costoUnit: 0, unidades: 1 
-  };
+  const compraVacia = { proveedor: '', nit: '', nroFactura: '', codigoBarras: '', descripcion: '', costoUnit: 0, unidades: 1 };
   const [formularioCompra, setFormularioCompra] = React.useState(compraVacia);
-
-  // Historiales de Auditoría (Punto 2)
-  const [ventasDia, setVentasDia] = React.useState([]);
-  const [facturasCompraRegistradas, setFacturasCompraRegistradas] = React.useState([]);
   const [baseCaja, setBaseCaja] = React.useState(100000); 
 
-  const cargarDatos = async () => {
+  // --- GUARDIANES (useEffect): GUARDAN EN DISCO CADA VEZ QUE ALGO CAMBIA ---
+  React.useEffect(() => {
+    localStorage.setItem("merca_productos", JSON.stringify(productos));
+  }, [productos]);
+
+  React.useEffect(() => {
+    localStorage.setItem("merca_compras", JSON.stringify(facturasCompraRegistradas));
+  }, [facturasCompraRegistradas]);
+
+  React.useEffect(() => {
+    localStorage.setItem("merca_ventas", JSON.stringify(ventasDia));
+  }, [ventasDia]);
+
+  // Sincronización inicial opcional con API externa
+  const cargarDatosDesdeServidor = async () => {
     try {
       const res = await fetch(`${API_URL}/productos`);
       const data = await res.json();
-      setProductos(Array.isArray(data) ? data : []);
+      if (Array.isArray(data) && data.length > 0) {
+        setProductos(data);
+      }
     } catch (e) { 
-      console.warn("Modo offline: Usando datos en memoria local."); 
+      console.log("Trabajando con la base de datos local del navegador."); 
     }
   };
 
-  React.useEffect(() => { cargarDatos(); }, []);
+  React.useEffect(() => { 
+    // Si tienes datos locales, los respeta; si está vacío, intenta buscar del servidor
+    if (productos.length === 0) cargarDatosDesdeServidor(); 
+  }, []);
 
   // --- LÓGICA DE VENTAS ---
   const agregarAlCarrito = (p) => {
-    // Verificar si hay stock disponible antes de vender
     if (p.cantidad <= 0) return alert("⚠️ Producto sin inventario disponible.");
     
     const existe = carrito.find(item => item.id === p.id);
     if (existe) {
-      if (existe.cantidad >= p.cantidad) return alert("⚠️ No puedes vender más de las unidades disponibles en stock.");
+      if (existe.cantidad >= p.cantidad) return alert("⚠️ Superas el stock disponible.");
       setCarrito(carrito.map(item => item.id === p.id ? { ...item, cantidad: item.cantidad + 1 } : item));
     } else {
       setCarrito([...carrito, { ...p, cantidad: 1 }]);
@@ -53,7 +78,6 @@ const POSApp = () => {
   const finalizarVenta = () => {
     if (carrito.length === 0) return;
     
-    // Descontar del inventario localmente al vender
     const nuevosProductos = productos.map(p => {
       const itemEnCarrito = carrito.find(c => c.id === p.id);
       return itemEnCarrito ? { ...p, cantidad: p.cantidad - itemEnCarrito.cantidad } : p;
@@ -67,11 +91,11 @@ const POSApp = () => {
       fecha: new Date().toLocaleString()
     };
     setVentasDia([...ventasDia, nuevaVenta]);
-    alert("🧾 Factura de Venta Emitida");
+    alert("🧾 Factura de Venta Emitida y Guardada");
     setCarrito([]);
   };
 
-  // --- LÓGICA DE IMAGEN Y EDICIÓN DE PRODUCTOS (Punto 1) ---
+  // --- LÓGICA DE INVENTARIO ---
   const manejarImagen = (e) => {
     const file = e.target.files[0];
     if (file) {
@@ -81,7 +105,7 @@ const POSApp = () => {
     }
   };
 
-  const guardarProducto = async () => {
+  const guardarProducto = () => {
     if (!editando.nombre || !editando.precio) return alert("Faltan datos obligatorios.");
     
     const nuevo = { 
@@ -92,17 +116,17 @@ const POSApp = () => {
     };
     
     setProductos(editando.id ? productos.map(p => p.id === editando.id ? nuevo : p) : [...productos, nuevo]);
-    setEditando(productoVacio); // Restablece todo, incluyendo la imagen limpiamente
-    alert("✅ Producto Guardado Correctamente");
+    setEditando(productoVacio);
+    alert("✅ Cambios retenidos en la base de datos local");
   };
 
-  // --- REGISTRO DE ENTRADA DE MERCANCÍA / COMPRAS (Punto 2 y 3) ---
+  // --- ENTRADA DE MERCANCÍA ---
   const registrarFacturaCompra = () => {
     const { proveedor, nroFactura, descripcion, costoUnit, unidades } = formularioCompra;
-    if (!proveedor || !nroFactura || !descripcion) return alert("Por favor llena los campos clave de la compra.");
+    if (!proveedor || !nroFactura || !descripcion) return alert("Por favor llena los campos clave.");
 
     const costoTotalItem = Number(costoUnit) * Number(unidades);
-    const totalConIva = costoTotalItem * 1.19; // IVA del 19% legal en Colombia
+    const totalConIva = costoTotalItem * 1.19;
 
     const nuevaFacturaCompra = {
       ...formularioCompra,
@@ -112,24 +136,19 @@ const POSApp = () => {
       fecha: new Date().toLocaleString()
     };
 
-    // 1. Agregar al historial de compras
     setFacturasCompraRegistradas([...facturasCompraRegistradas, nuevaFacturaCompra]);
 
-    // 2. Afectar el inventario (Buscar si existe por nombre/descripción o agregarlo)
     const existeEnInventario = productos.find(p => p.nombre.toLowerCase() === descripcion.toLowerCase());
     
     if (existeEnInventario) {
       setProductos(productos.map(p => 
-        p.id === existeEnInventario.id 
-          ? { ...p, cantidad: p.cantidad + Number(unidades) } 
-          : p
+        p.id === existeEnInventario.id ? { ...p, cantidad: p.cantidad + Number(unidades) } : p
       ));
     } else {
-      // Si el producto comprado no existía, lo crea en el inventario automáticamente con margen sugerido de ganancia
       const nuevoProductoComprado = {
         id: Date.now(),
         nombre: descripcion,
-        precio: Number(costoUnit) * 1.30, // 30% de margen sugerido por defecto
+        precio: Number(costoUnit) * 1.30, 
         cantidad: Number(unidades),
         imagen_url: ''
       };
@@ -137,12 +156,12 @@ const POSApp = () => {
     }
 
     setFormularioCompra(compraVacia);
-    alert("✅ Entrada de mercancía registrada e inventario actualizado.");
+    alert("✅ Compra grabada en el historial y stock actualizado.");
   };
 
   return React.createElement("div", { className: "pos-container" },
     
-    // NAVEGACIÓN
+    // NAV
     React.createElement("nav", { className: "top-nav" },
       React.createElement("div", { className: "nav-logo" }, "MERCAEXPRESS 33"),
       React.createElement("div", { className: "nav-links" },
@@ -154,7 +173,7 @@ const POSApp = () => {
 
     React.createElement("main", { className: "main-panel" },
       
-      // VISTA DE FACTURACIÓN (VENTAS)
+      // MOSTRADOR (VENTAS)
       seccion === "ventas" && React.createElement("div", { className: "ventas-layout" },
         React.createElement("div", { className: "productos-panel" },
           React.createElement("input", { className: "search-input", placeholder: "🔍 Buscar producto en mostrador...", onChange: e => setBusqueda(e.target.value) }),
@@ -190,7 +209,7 @@ const POSApp = () => {
         )
       ),
 
-      // VISTA DE INVENTARIO Y CANTIDADES (Punto 3)
+      // INVENTARIO Y STOCK
       seccion === "inventario" && React.createElement("div", { className: "admin-horizontal" },
         React.createElement("div", { className: "admin-card" },
           React.createElement("h2", null, editando.id ? "✏️ Modificar Producto" : "➕ Crear Producto Manual"),
@@ -203,7 +222,7 @@ const POSApp = () => {
             React.createElement("div", { style: {flex:1, display:'flex', flexDirection:'column', gap:'10px'} },
               React.createElement("input", { placeholder: "Nombre del Producto", value: editando.nombre, onChange: e => setEditando({...editando, nombre: e.target.value}) }),
               React.createElement("input", { type: "number", placeholder: "Precio de Venta", value: editando.precio, onChange: e => setEditando({...editando, precio: e.target.value}) }),
-              React.createElement("input", { type: "number", placeholder: "Cantidad Inicial (Stock)", value: editando.cantidad, onChange: e => setEditando({...editando, cantidad: e.target.value}) }),
+              React.createElement("input", { type: "number", placeholder: "Stock Inicial", value: editando.cantidad, onChange: e => setEditando({...editando, cantidad: e.target.value}) }),
               React.createElement("button", { className: "btn-save", onClick: guardarProducto }, "Confirmar Ítem")
             )
           )
@@ -211,7 +230,7 @@ const POSApp = () => {
         React.createElement("div", { className: "admin-card" },
           React.createElement("h2", null, "📦 Control Real de Existencias e Inventario"),
           React.createElement("table", { className: "report-table" },
-            React.createElement("thead", null, React.createElement("tr", null, React.createElement("th", null, "Producto"), React.createElement("th", null, "Precio de Venta"), React.createElement("th", null, "Cant. Disponible (Stock)"), React.createElement("th", null, "Estado"), React.createElement("th", null, "Acción"))),
+            React.createElement("thead", null, React.createElement("tr", null, React.createElement("th", null, "Producto"), React.createElement("th", null, "Precio"), React.createElement("th", null, "Stock"), React.createElement("th", null, "Estado"), React.createElement("th", null, "Acción"))),
             React.createElement("tbody", null, productos.map(p => React.createElement("tr", {key: p.id},
               React.createElement("td", null, p.nombre),
               React.createElement("td", null, `$${p.precio.toLocaleString()}`),
@@ -223,27 +242,25 @@ const POSApp = () => {
         )
       ),
 
-      // VISTA DE COMPRAS, REPORTES E HISTORIALES (Punto 2)
+      // COMPRAS Y REPORTES
       seccion === "admin" && React.createElement("div", { className: "admin-horizontal" },
         React.createElement("div", { className: "admin-card" },
-          React.createElement("h2", null, "🧾 Registro Factura de Compra Legal (Ingreso Mercancía)"),
+          React.createElement("h2", null, "🧾 Registro Factura de Compra Legal"),
           React.createElement("div", { className: "admin-form-grid" },
-            React.createElement("input", { placeholder: "Proveedor / Razón Social", value: formularioCompra.proveedor, onChange: e => setFormularioCompra({...formularioCompra, proveedor: e.target.value}) }),
+            React.createElement("input", { placeholder: "Proveedor", value: formularioCompra.proveedor, onChange: e => setFormularioCompra({...formularioCompra, proveedor: e.target.value}) }),
             React.createElement("input", { placeholder: "NIT Proveedor", value: formularioCompra.nit, onChange: e => setFormularioCompra({...formularioCompra, nit: e.target.value}) }),
             React.createElement("input", { placeholder: "Nro Factura", value: formularioCompra.nroFactura, onChange: e => setFormularioCompra({...formularioCompra, nroFactura: e.target.value}) }),
-            React.createElement("input", { placeholder: " can Código de Barras", value: formularioCompra.codigoBarras, onChange: e => setFormularioCompra({...formularioCompra, codigoBarras: e.target.value}) }),
-            React.createElement("input", { placeholder: "Descripción / Nombre Producto", value: formularioCompra.descripcion, onChange: e => setFormularioCompra({...formularioCompra, descripcion: e.target.value}) }),
+            React.createElement("input", { placeholder: "Código de Barras", value: formularioCompra.codigoBarras, onChange: e => setFormularioCompra({...formularioCompra, codigoBarras: e.target.value}) }),
+            React.createElement("input", { placeholder: "Descripción Producto", value: formularioCompra.descripcion, onChange: e => setFormularioCompra({...formularioCompra, descripcion: e.target.value}) }),
             React.createElement("input", { type: "number", placeholder: "Costo Unitario ($)", value: formularioCompra.costoUnit, onChange: e => setFormularioCompra({...formularioCompra, costoUnit: e.target.value}) }),
-            React.createElement("input", { type: "number", placeholder: "Unidades Entrantes", value: formularioCompra.unidades, onChange: e => setFormularioCompra({...formularioCompra, unidades: e.target.value}) }),
-            
+            React.createElement("input", { type: "number", placeholder: "Unidades", value: formularioCompra.unidades, onChange: e => setFormularioCompra({...formularioCompra, unidades: e.target.value}) }),
             React.createElement("div", { className: "total-badge" }, 
               `SUBTOTAL: $${(Number(formularioCompra.costoUnit) * Number(formularioCompra.unidades)).toLocaleString()} | TOTAL (+ IVA 19%): $${((Number(formularioCompra.costoUnit) * Number(formularioCompra.unidades)) * 1.19).toLocaleString()}`
             )
           ),
-          React.createElement("button", { className: "btn-pay", style: {marginTop:'15px', background: '#3498db'}, onClick: registrarFacturaCompra }, "📥 Procesar e Inyectar al Stock")
+          React.createElement("button", { className: "btn-pay", style: {marginTop:'15px', background: '#3498db'}, onClick: registrarFacturaCompra }, "📥 Procesar Factura de Entrada")
         ),
 
-        // HISTORIAL DE FACTURAS DE COMPRA
         React.createElement("div", { className: "admin-card" },
           React.createElement("h2", null, "📜 Historial de Facturas de Compra Recibidas"),
           React.createElement("table", { className: "report-table" },
@@ -259,7 +276,6 @@ const POSApp = () => {
           )
         ),
 
-        // CIERRE DE CAJA DEL DÍA
         React.createElement("div", { className: "admin-card" },
           React.createElement("h2", null, "📊 Cuadre y Cierre de Caja"),
           React.createElement("div", { className: "metrics-grid" },
