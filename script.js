@@ -36,6 +36,7 @@ const POSApp = () => {
   const [carrito, setCarrito] = React.useState([]);
   const [seccion, setSeccion] = React.useState("ventas");
   const [busqueda, setBusqueda] = React.useState("");
+  const [busquedaInventario, setBusquedaInventario] = React.useState(""); // Nuevo: Buscador para la tabla de inventario
   const [mostrarSugerencias, setMostrarSugerencias] = React.useState(false);
   const [baseCaja, setBaseCaja] = React.useState(100000);
   const [historialCierres, setHistorialCierres] = React.useState(() => {
@@ -54,7 +55,6 @@ const POSApp = () => {
   };
   const [formularioCompra, setFormularioCompra] = React.useState(compraVacia);
 
-  // Estados de carga limpios para Terceros (permiten creación o edición)
   const clienteVacio = { id: null, doc: '', nombre: '', tel: '' };
   const [nuevoCliente, setNuevoCliente] = React.useState(clienteVacio);
 
@@ -151,32 +151,26 @@ const POSApp = () => {
     setEditando(productoVacio);
   };
 
-  // --- CONTROLLER: GESTIÓN DE CLIENTES (CREACIÓN Y EDICIÓN) ---
+  // --- GESTIÓN DE CLIENTES ---
   const guardarCliente = () => {
     if (!nuevoCliente.doc || !nuevoCliente.nombre) return alert("Documento y Nombre requeridos.");
-    
     if (nuevoCliente.id) {
-      // Modificar existente
       setClientes(clientes.map(c => c.id === nuevoCliente.id ? nuevoCliente : c));
       alert("👤 Registro de cliente actualizado.");
     } else {
-      // Crear nuevo
       setClientes([...clientes, { ...nuevoCliente, id: Date.now() }]);
       alert("👤 Nuevo cliente indexado con éxito.");
     }
     setNuevoCliente(clienteVacio);
   };
 
-  // --- CONTROLLER: GESTIÓN DE PROVEEDORES (CREACIÓN Y EDICIÓN) ---
+  // --- GESTIÓN DE PROVEEDORES ---
   const guardarProveedor = () => {
     if (!nuevoProveedor.nit || !nuevoProveedor.nombre) return alert("NIT y Razón social requeridos.");
-    
     if (nuevoProveedor.id) {
-      // Modificar existente
       setProveedores(proveedores.map(p => p.id === nuevoProveedor.id ? nuevoProveedor : p));
       alert("🏢 Ficha de proveedor actualizada.");
     } else {
-      // Crear nuevo
       setProveedores([...proveedores, { ...nuevoProveedor, id: Date.now() }]);
       alert("🏢 Nuevo proveedor indexado con éxito.");
     }
@@ -213,8 +207,8 @@ const POSApp = () => {
       ...formularioCompra,
       id: Date.now(),
       nombreProveedor: provAsociado ? provAsociado.nombre : "Desconocido",
-      subtotal: subtotalNeto,
-      totalFactura: totalConImpuestos,
+      subtotal: Number(subtotalNeto) || 0,
+      totalFactura: Number(totalConImpuestos) || 0, // Corrección: Forzamos número estricto
       fecha: new Date().toLocaleString()
     };
 
@@ -235,30 +229,37 @@ const POSApp = () => {
     }
 
     setFormularioCompra(compraVacia);
-    alert("📥 Compra radicada y existencias sumadas.");
+    alert("📥 Compra radicada. Restada de la caja activa y existencias sumadas.");
   };
 
   // --- ARQUEO Y CIERRE DE CAJA OPERATIVO ---
   const ejecutarCierreCaja = () => {
-    const ventasTotales = ventasDia.reduce((a, b) => a + b.total, 0);
-    const comprasTotales = facturasCompraRegistradas.reduce((a, b) => a + b.totalFactura, 0); 
+    const ventasTotales = Number(ventasDia.reduce((a, b) => a + (b.total || 0), 0)) || 0;
+    const comprasTotales = Number(facturasCompraRegistradas.reduce((a, b) => a + (b.totalFactura || 0), 0)) || 0; 
+    const ajustesTotales = Number(egresosAjustesInventario) || 0;
     
-    const egresosTotales = comprasTotales + egresosAjustesInventario;
-    const netoEnCaja = baseCaja + ventasTotales - egresosTotales;
+    const egresosTotales = comprasTotales + ajustesTotales;
+    const netoEnCaja = Number(baseCaja) + ventasTotales - egresosTotales;
 
-    if (confirm(`¿Proceder con el Cierre de Caja definitivo?\n\n(+) Ingreso Ventas: $${ventasTotales.toLocaleString()}\n(-) Egreso Facturas Compra: $${comprasTotales.toLocaleString()}\n(-) Egreso Ajustes Inventario: $${egresosAjustesInventario.toLocaleString()}\n(=) Efectivo Líquido Esperado: $${netoEnCaja.toLocaleString()}`)) {
+    if (confirm(`¿Proceder con el Cierre de Caja definitivo?\n\n(+) Ingreso Ventas: $${ventasTotales.toLocaleString()}\n(-) Egreso Facturas Compra: $${comprasTotales.toLocaleString()}\n(-) Egreso Ajustes Inventario: $${ajustesTotales.toLocaleString()}\n(=) Efectivo Líquido Esperado: $${netoEnCaja.toLocaleString()}`)) {
       const nuevoCierre = {
         id: Date.now(),
         fecha: new Date().toLocaleString(),
         vendido: ventasTotales,
-        pagado: egresosTotales,
+        pagado: egresosTotales, // El egreso real consolidado queda en el historial
         totalCaja: netoEnCaja
       };
       setHistorialCierres([...historialCierres, nuevoCierre]);
       
+      // Limpieza de datos del turno
       setVentasDia([]); 
       setEgresosAjustesInventario(0);
-      alert("🔒 Turno cerrado exitosamente. Valores base reajustados.");
+      setFacturasCompraRegistradas([]); // Corrección: Limpieza de facturas radicadas en el turno
+      
+      localStorage.setItem("merca_ajustes_costo", "0");
+      localStorage.setItem("merca_compras", "[]"); 
+
+      alert("🔒 Turno cerrado exitosamente. Historial actualizado y egresos reiniciados para el nuevo turno.");
     }
   };
 
@@ -349,22 +350,32 @@ const POSApp = () => {
         ),
         React.createElement("div", { className: "admin-card" },
           React.createElement("h2", null, "📦 Inventario de Stock Activo"),
+          // Nuevo: Entrada de búsqueda para filtrar la tabla de stock activo
+          React.createElement("input", { 
+            className: "search-input", 
+            style: { marginBottom: '15px', width: '100%', padding: '8px' }, 
+            placeholder: "🔍 Buscar en stock activo...", 
+            value: busquedaInventario,
+            onChange: e => setBusquedaInventario(e.target.value) 
+          }),
           React.createElement("table", { className: "report-table" },
             React.createElement("thead", null, React.createElement("tr", null, React.createElement("th", null, "Producto"), React.createElement("th", null, "Precio Venta"), React.createElement("th", null, "Stock"), React.createElement("th", null, "Acción"))),
-            React.createElement("tbody", null, productos.map(p => React.createElement("tr", {key: p.id},
-              React.createElement("td", null, p.nombre), 
-              React.createElement("td", null, `$${p.precio.toLocaleString()}`), 
-              React.createElement("td", {style:{fontWeight:'bold'}}, p.cantidad),
-              React.createElement("td", null, React.createElement("button", { className: "btn-edit-small", onClick: () => setEditando({...p, costoAjuste: '', asociadoA: 'PROVEEDOR', terceroId: '1'}) }, "✏️"))
-            )))
+            React.createElement("tbody", null, 
+              productos
+                .filter(p => p.nombre.toLowerCase().includes(busquedaInventario.toLowerCase())) // Aplicación del nuevo filtro
+                .map(p => React.createElement("tr", {key: p.id},
+                  React.createElement("td", null, p.nombre), 
+                  React.createElement("td", null, `$${p.precio.toLocaleString()}`), 
+                  React.createElement("td", {style:{fontWeight:'bold'}}, p.cantidad),
+                  React.createElement("td", null, React.createElement("button", { className: "btn-edit-small", onClick: () => setEditando({...p, costoAjuste: '', asociadoA: 'PROVEEDOR', terceroId: '1'}) }, "✏️"))
+                ))
+            )
           )
         )
       ),
 
-      // SECCIÓN TERCEROS COMPLETAMENTE REDISEÑADA Y SEPARADA EN SECCIONES
+      // SECCIÓN TERCEROS
       seccion === "terceros" && React.createElement("div", { className: "admin-horizontal" },
-        
-        // COLUMNA IZQUIERDA: CLIENTES
         React.createElement("div", { className: "admin-card", style: {flex: 1} },
           React.createElement("h2", null, nuevoCliente.id ? "✏️ Editar Ficha Cliente" : "👤 Registro de Clientes"),
           React.createElement("div", { className: "admin-form-grid", style: {marginBottom: '20px'} },
@@ -388,7 +399,6 @@ const POSApp = () => {
           )
         ),
 
-        // COLUMNA DERECHA: PROVEEDORES
         React.createElement("div", { className: "admin-card", style: {flex: 1} },
           React.createElement("h2", null, nuevoProveedor.id ? "✏️ Editar Ficha Proveedor" : "🏢 Registro de Proveedores"),
           React.createElement("div", { className: "admin-form-grid", style: {marginBottom: '20px'} },
